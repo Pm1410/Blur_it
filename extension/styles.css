@@ -1,4 +1,5 @@
 /* Unified styles.css for Vibe Checker + Feed Scanner */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap');
 
 #cyhi-sidebar {
     position: fixed;
@@ -31,9 +32,9 @@
     justify-content: center;
     border-right: 1px solid rgba(255, 255, 255, 0.1); 
     color: #ffffff; /* Bright white */
-    font-family: "Courier New", Courier, monospace;
+    font-family: 'Roboto', 'Segoe UI', sans-serif;
     font-size: 18px; /* Slightly smaller to fit 45px height */
-    font-weight: 900; /* Bold */
+    font-weight: 700; /* Bold, but clean */
     cursor: pointer;
     transition: all 0.2s ease;
     user-select: none;
@@ -107,14 +108,14 @@ body.cyhi-mode-unblur .cyhi-blurred:hover { box-shadow: 0 0 10px rgba(255, 255, 
   padding: 18px;
   z-index: 2147483647;
   box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-  font-family: "Courier New", Courier, monospace;
+  font-family: 'Roboto', 'Segoe UI', sans-serif;
   width: 340px;
   display: none;
   color: #ffffff;
 }
 .cyhi-header {
   color: #ffffff;
-  font-weight: bold;
+  font-weight: 700;
   font-size: 16px;
   margin-bottom: 12px;
   letter-spacing: 1px;
@@ -134,11 +135,11 @@ body.cyhi-mode-unblur .cyhi-blurred:hover { box-shadow: 0 0 10px rgba(255, 255, 
   padding: 8px 16px;
   cursor: pointer;
   border-radius: 6px;
-  font-weight: bold;
+  font-weight: 700;
   font-size: 13px;
   margin-right: 10px;
   transition: all 0.2s ease;
-  font-family: "Courier New", Courier, monospace;
+  font-family: 'Roboto', 'Segoe UI', sans-serif;
 }
 .cyhi-accept { 
   background: rgba(255, 255, 255, 0.9);

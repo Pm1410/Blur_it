@@ -125,16 +125,43 @@
       ctx.getImageData(0, 0, 1, 1);
       drawSuccess = true;
     } catch (taintErr) {
-      if (img.src) {
+      const targetUrl = img.currentSrc || img.src;
+      if (targetUrl) {
+        // Fallback 1: Try in-page fetch (works if CDN supports CORS)
         try {
-          const resp = await fetch(img.src);
+          const resp = await fetch(targetUrl);
           const blob = await resp.blob();
           const bitmap = await createImageBitmap(blob);
           ctx.clearRect(0, 0, CONFIG.inputWidth, CONFIG.inputHeight);
           ctx.drawImage(bitmap, 0, 0, CONFIG.inputWidth, CONFIG.inputHeight);
+          ctx.getImageData(0, 0, 1, 1);
           drawSuccess = true;
         } catch (fetchErr) {
-          console.debug("[NSFW Shield] Image fetch fallback failed:", fetchErr);
+          // Fallback 2: Page CORS blocked fetch. Request background service worker
+          // (which has <all_urls> host_permissions) to fetch and return clean data URL.
+          try {
+            const bgResponse = await new Promise((resolve) => {
+              chrome.runtime.sendMessage(
+                { type: "FETCH_IMAGE_DATA", url: targetUrl },
+                (res) => resolve(res || { success: false })
+              );
+            });
+
+            if (bgResponse && bgResponse.success && bgResponse.dataUrl) {
+              const cleanImg = new Image();
+              await new Promise((resolve, reject) => {
+                cleanImg.onload = resolve;
+                cleanImg.onerror = reject;
+                cleanImg.src = bgResponse.dataUrl;
+              });
+              ctx.clearRect(0, 0, CONFIG.inputWidth, CONFIG.inputHeight);
+              ctx.drawImage(cleanImg, 0, 0, CONFIG.inputWidth, CONFIG.inputHeight);
+              ctx.getImageData(0, 0, 1, 1);
+              drawSuccess = true;
+            }
+          } catch (bgErr) {
+            console.debug("[NSFW Shield] Background proxy fetch failed:", bgErr);
+          }
         }
       }
     }
@@ -172,21 +199,32 @@
     if (img.dataset.nsfwProcessed === "true") return;
     img.dataset.nsfwProcessed = "true";
 
-    const parent = img.parentElement;
+    // If inside a <picture> tag, wrap the picture element to preserve HTML5 picture semantics
+    let targetElement = img;
+    if (img.parentElement && img.parentElement.tagName === "PICTURE") {
+      targetElement = img.parentElement;
+    }
+    const parent = targetElement.parentElement;
     if (!parent) return;
 
     // Add CSS blur to image
     img.classList.add("nsfw-shield-blurred");
 
+    // Don't re-wrap if container already exists
+    if (targetElement.parentElement && targetElement.parentElement.classList.contains("nsfw-shield-container")) {
+      return;
+    }
+
     // Wrapper container for badge
     const wrapper = document.createElement("div");
     wrapper.className = "nsfw-shield-container";
     wrapper.style.position = "relative";
-    wrapper.style.display = window.getComputedStyle(img).display === "inline" ? "inline-block" : "block";
+    const compDisplay = window.getComputedStyle(targetElement).display;
+    wrapper.style.display = compDisplay === "inline" ? "inline-block" : compDisplay;
 
     // Insert wrapper
-    parent.insertBefore(wrapper, img);
-    wrapper.appendChild(img);
+    parent.insertBefore(wrapper, targetElement);
+    wrapper.appendChild(targetElement);
 
     // Badge overlay
     const badge = document.createElement("div");
@@ -211,11 +249,15 @@
    */
   async function processImage(img) {
     if (!isEnabled) return;
-    if (img.width < CONFIG.minSize || img.height < CONFIG.minSize) return;
-    if (img.dataset.nsfwScanned === "true") return;
-    img.dataset.nsfwScanned = "true";
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (w < CONFIG.minSize || h < CONFIG.minSize) return;
 
     const cacheKey = getCacheKey(img);
+    if (img.dataset.nsfwScanned === "true" && img.dataset.lastScannedKey === cacheKey) return;
+    img.dataset.nsfwScanned = "true";
+    img.dataset.lastScannedKey = cacheKey;
+
     if (processedCache.has(cacheKey)) {
       const cached = processedCache.get(cacheKey);
       if (cached.isUnsafe) {
@@ -225,7 +267,7 @@
     }
 
     try {
-      if (!img.complete || img.naturalWidth === 0) {
+      if (!img.complete || (img.naturalWidth === 0 && img.width === 0)) {
         img.addEventListener("load", () => processImage(img), { once: true });
         return;
       }
@@ -233,6 +275,16 @@
       const tensorData = await preprocessImage(img);
       const result = await classifyTensor(tensorData, sensitivityThreshold);
       processedCache.set(cacheKey, result);
+
+      // Track statistics in storage
+      if (chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get(["scannedCount", "blurredCount"], (d) => {
+          chrome.storage.local.set({
+            scannedCount: (d.scannedCount || 0) + 1,
+            blurredCount: (d.blurredCount || 0) + (result.isUnsafe ? 1 : 0)
+          });
+        });
+      }
 
       console.debug(`[NSFW Shield] ${result.topClass.toUpperCase()} (${Math.round(result.confidence * 100)}%) | Unsafe: ${(result.probabilities.unsafe * 100).toFixed(1)}%`, img.src || img);
 
@@ -257,27 +309,36 @@
   }, { rootMargin: "150px" });
 
   function observeImage(img) {
-    if (img.dataset.nsfwObserved) return;
+    if (img.dataset.nsfwObserved === "true") return;
     img.dataset.nsfwObserved = "true";
     visibilityObserver.observe(img);
 
-    if (img.complete && img.naturalWidth > 0) {
+    if (img.complete && (img.naturalWidth > 0 || img.width > 0)) {
       processImage(img);
     } else {
       img.addEventListener("load", () => processImage(img), { once: true });
     }
   }
 
-  // MutationObserver watching for dynamically added <img> elements (EXT-02)
+  // MutationObserver watching for dynamically added <img> elements (EXT-02) and src mutations (lazy loading)
   const domObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          if (node.tagName === "IMG") {
-            observeImage(node);
-          } else if (node.querySelectorAll) {
-            node.querySelectorAll("img").forEach(observeImage);
+      if (mutation.type === "childList") {
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.tagName === "IMG") {
+              observeImage(node);
+            } else if (node.querySelectorAll) {
+              node.querySelectorAll("img").forEach(observeImage);
+            }
           }
+        }
+      } else if (mutation.type === "attributes" && mutation.target.tagName === "IMG") {
+        const img = mutation.target;
+        const currentKey = getCacheKey(img);
+        if (img.dataset.lastScannedKey !== currentKey) {
+          img.dataset.nsfwScanned = "false";
+          observeImage(img);
         }
       }
     }
@@ -306,10 +367,12 @@
     // Initial pass over existing images
     document.querySelectorAll("img").forEach(observeImage);
 
-    // Watch for dynamic insertions
+    // Watch for dynamic insertions and lazy loading attribute changes
     domObserver.observe(document.body || document.documentElement, {
       childList: true,
-      subtree: true
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["src", "srcset"]
     });
   }
 

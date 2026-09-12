@@ -31,7 +31,8 @@
         "worker.js",
         "ort.min.js",
         "*.wasm",
-        "models/*"
+        "models/*",
+        "demo_images/*"
       ],
       "matches": ["<all_urls>"]
     }

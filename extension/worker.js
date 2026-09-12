@@ -19,10 +19,19 @@ const CLASS_LABELS = ["safe", "nsfw", "graphic"];
 async function loadModel(modelUrl) {
   try {
     if (typeof ort !== "undefined") {
-      session = await ort.InferenceSession.create(modelUrl, {
+      let modelInput = modelUrl;
+      try {
+        const response = await fetch(modelUrl);
+        const buffer = await response.arrayBuffer();
+        modelInput = new Uint8Array(buffer);
+      } catch (fetchErr) {
+        console.warn("[Worker] Direct fetch failed, trying url:", fetchErr);
+      }
+
+      session = await ort.InferenceSession.create(modelInput, {
         executionProviders: ["wasm"]
       });
-      console.log("[Worker] ONNX Session initialized successfully:", modelUrl);
+      console.log("[Worker] ONNX Session initialized successfully!");
     } else {
       console.log("[Worker] Standalone worker ready with built-in preprocessing & inference pipeline.");
     }

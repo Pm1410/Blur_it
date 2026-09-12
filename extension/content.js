@@ -39,7 +39,37 @@ const adjective_swear_words = [
     "namak haram", "haraamzada", "bewakoof", "gadha", "ullu", "ullu ke patthe", "dimaag kharab", 
     "pagal", "dhed shana", "chaprasi", "andhe", "bakwas", "chup kar", "aukaat", "aukat", "nikal", 
     "chal nikal", "bhad me ja", "mar ja", "jahil", "nirlajj", 
-    "fuck", "fucking", "shit", "bitch", "asshole", "ass", "moron", "idiot"
+    "fuck", "fucking", "shit", "bitch", "asshole", "ass", "moron", "idiot",
+    "kutte ki zat", "कुत्ते की ज़ात", "suar ki zat", "सूअर की ज़ात", "सूअर की औलाद",
+    "gadhe ki aulad", "गधे की औलाद", "gadhe ki zat", "गधे की ज़ात", "bandar ki aulad", "बंदर की औलाद", 
+    "bandar ki zat", "बंदर की ज़ात", "bhains ki aulad", "भैंस की औलाद", "bhains ki zat", "भैंस की ज़ात", 
+    "ullu ki zat", "उल्लू की ज़ात", "lomdi ki aulad", "लोमड़ी की औलाद", 
+    "lomdi ki zat", "लोमड़ी की ज़ात", "bhed ki aulad", "भेड़ की औलाद", "bhed ki zat", "भेड़ की ज़ात", 
+    "bakri ki aulad", "बकरी की औलाद", "bakri ki zat", "बकरी की ज़ात", "billi ki aulad", "बिल्ली की औलाद", 
+    "billi ki zat", "बिल्ली की ज़ात", "mendhak ki aulad", "मेंढक की औलाद", "mendhak ki zat", "मेंढक की ज़ात", 
+    "badir", "बदीर", "badirchand", "बदीरचंद", "bakland", "बकलैंड", "बकलंड", "bhandwa", "भंडवा", 
+    "भड़वा", "chinaal", "चिनाल", "छनाल", "चूतिया", "चुतिया", "ghasti", "घसटी", "घसति", "ghassad", 
+    "घसड़", "घस्सड़", "हरामी", "haram zada", "हरामज़ादा", "हरामजादा", "hijda", "हिजड़ा", "hijra", 
+    "tatti", "टट्टी", "चोद", "land", "लंड", "lode", "लोडे", "takke", "टक्के", "chakka", "छक्का", 
+    "faggot", "टट्टे", "raand", "रांड", "randhwa", "रंढवा", "jigolo", "जिगोलो", "रंडी", 
+    "चूत", "bund", "बंड", "गांडू", "gandi", "गांडी", "bhosdi wala", "भोसड़ी वाला", 
+    "bhonsri wala", "भोंसड़ी वाला", "bhosri wala", "भोसरी वाला", "boobley", "बूबले", "chuchi", "चुची", 
+    "chuuche", "चूचे", "chuchiyan", "चूचियां", "chut marike", "चूत मार के", "land marike", "लंड मार के", 
+    "gand mari ke", "गांड मारी के", "chodu", "चोदू", "lavda", "लौड़ा", "lawda", "लौंडा", "loda", "लोडा", 
+    "muth marna", "मुठ मारना", "muthi", "मुठी", "mutthal", "मुठल", "baable", "बाबले", "bur", "बुर", 
+    "चोदना", "chudna", "चुदना", "chud", "चुद", "buuble", "भड़वे", "bhadwon", "भड़वों", 
+    "bhadwi", "भड़वी", "bhadwapanti", "भड़वापंती", "chodela", "चोदेला", "marana", "मारना", "marani", "मारनी", 
+    "marane", "मारने", "gandphatu", "गांडफटू", "gandphati", "गांडफटी", "gandphata", "गांडफटा", "gandphaton", 
+    "गांडफटों", "गांडमस्ती", "gand marna", "गांड मारना", "gand maru", "गांड मारू", "gand mari", 
+    "गांड मारी", "gand marana", "गांड माराना", "jhaant", "झाँट", "gand phatu", "गांड फटू", "gand phati", "गांड फटी", 
+    "gand phata", "गांड फटा", "gand phaton", "गांड फटों", "gaand masti", "गांड मस्ती", "gandmarna", "गांडमरना", 
+    "gandmaru", "गांडमरू", "gandmarana", "गांडमराना", "gandmari", "गांडमारी", "randibazar", "रंडीबाज़ार", 
+    "chodo", "चोदो", "chodi", "चोदी", "chodne", "चोदने", "chodva", "चोदवा", "chudo", "चुदो", "chudi", "चुदी", 
+    "chudne", "चुदने", "chudva", "चुदवा", "chodai", "चोदाई", "chuda", "चुदा", "chudai", "चुदाई", "chudvana", 
+    "चुदवाना", "haramia", "हरामिया", "haramzada", "haramzadi", "हरामज़ादी", "haramkhor", "हरामख़ोर", "kamini", 
+    "कमीनी", "bhosdi", "भोसड़ी", "bhosdike", "भोसड़ीके", "bhandi", "भंडी", "rand", "randwa", 
+    "रांडवा", "randibazaar", "रांडिबाजार", "hijade", "हिजड़े", "gandu", "गंडू", "लवड़ा", "lundwa", "लंडवा", 
+    "chutmar", "चूतमार", "chutiyapa", "चूतियापा"
 ];
 const hinglish_swear_words = filler_swear_words.concat(adjective_swear_words);
 const euphemistic_threats = ["send you to heaven", "hunt you down", "will end you", "dig a grave", "put you in a body bag"];
@@ -75,19 +105,17 @@ vibeButton.addEventListener('click', async () => {
     let normalized = normalizeLeetspeak(text);
     let isHinglishToxic = false;
     let isEnglishToxic = false;
-    
     let politeVersion = normalized;
-    let cleanText = normalized.toLowerCase().replace(/[^\w\s]/g, '');
-    let words = cleanText.split(/\s+/);
     
-    for (let word of words) {
-        if (hinglish_swear_words.includes(word)) {
+    // Check phrases and single words
+    let lowerNorm = normalized.toLowerCase();
+    for (let word of hinglish_swear_words) {
+        if (lowerNorm.includes(word.toLowerCase())) {
             isHinglishToxic = true;
+            let regex = new RegExp(word, 'gi');
             if (filler_swear_words.includes(word)) {
-                let regex = new RegExp(`\\b${word}\\b`, 'gi');
                 politeVersion = politeVersion.replace(regex, '');
-            } else if (adjective_swear_words.includes(word)) {
-                let regex = new RegExp(`\\b${word}\\b`, 'gi');
+            } else {
                 politeVersion = politeVersion.replace(regex, '***');
             }
         }
@@ -97,13 +125,12 @@ vibeButton.addEventListener('click', async () => {
     
     if (!isHinglishToxic) {
         for (let threat of euphemistic_threats) {
-            if (normalized.toLowerCase().includes(threat)) {
+            if (lowerNorm.includes(threat)) {
                 isEnglishToxic = true; break;
             }
         }
         
         if (!isEnglishToxic) {
-            // Call Hugging Face API directly for BERT
             try {
                 let res = await fetch("https://api-inference.huggingface.co/models/martin-ha/toxic-comment-model", {
                     method: "POST", headers: {"Authorization": HF_TOKEN, "Content-Type": "application/json"},
@@ -121,7 +148,6 @@ vibeButton.addEventListener('click', async () => {
     if (isHinglishToxic) {
         showPopup(politeVersion, activeInputField);
     } else if (isEnglishToxic) {
-        // Call Hugging Face API directly for BART Rephraser
         try {
             let res = await fetch("https://api-inference.huggingface.co/models/s-nlp/bart-base-detox", {
                 method: "POST", headers: {"Authorization": HF_TOKEN, "Content-Type": "application/json"},

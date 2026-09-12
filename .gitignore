@@ -1,0 +1,30 @@
+# Python virtual environment
+.venv/
+env/
+venv/
+
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Data directories (raw and processed images should not be checked into git)
+data/raw/
+data/processed/
+
+# Model checkpoints and weights
+checkpoints/
+*.pt
+*.pth
+*.onnx
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# OS and IDE files
+.DS_Store
+.vscode/
+.idea/

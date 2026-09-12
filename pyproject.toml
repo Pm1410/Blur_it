@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nsfw-detector"
+version = "0.1.0"
+description = "Custom on-device CNN for Safe / NSFW / Graphic image classification"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.2.0",
+    "torchvision>=0.17.0",
+    "pillow>=10.0.0",
+    "imagehash>=4.3.1",
+    "scikit-learn>=1.4.0",
+    "numpy>=1.26.0",
+    "tqdm>=4.66.0",
+    "requests>=2.31.0",
+    "onnx>=1.16.0",
+    "onnxruntime>=1.18.0",
+    "matplotlib>=3.8.0",
+    "pytest>=8.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+

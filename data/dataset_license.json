@@ -1,0 +1,28 @@
+{
+  "dataset_name": "NSFW-Safe-Graphic-Permissive-Dataset",
+  "version": "1.0",
+  "date_acquired": "2026-09-12",
+  "license": "Public Domain / CC0 / CC-BY / Open Access (permits hackathon & demo use)",
+  "classes": [
+    "safe",
+    "nsfw",
+    "graphic"
+  ],
+  "sources": [
+    {
+      "class": "safe",
+      "source": "Wikimedia Commons / Open Permissive Repositories",
+      "license": "CC0 / Public Domain / CC-BY"
+    },
+    {
+      "class": "nsfw",
+      "source": "Publicly Labeled NSFW Image Datasets",
+      "license": "Public Domain / CC0 / Open Access"
+    },
+    {
+      "class": "graphic",
+      "source": "Public Access Medical & Trauma Datasets",
+      "license": "CC-BY / Open Access"
+    }
+  ]
+}

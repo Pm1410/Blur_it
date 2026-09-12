@@ -1,28 +1,7 @@
-// Inject Floating Button
-const vibeButton = document.createElement('button');
-vibeButton.id = 'cyhi-vibe-button';
-vibeButton.innerText = '✨ Vibe Check';
-document.body.appendChild(vibeButton);
+// content.js
+// 100% Offline Unified CYHI Engine (Objective 1 + 4)
 
-// Inject Popup UI
-const popup = document.createElement('div');
-popup.id = 'cyhi-tooltip';
-popup.innerHTML = `
-  <div class="cyhi-header">⚠️ Toxicity Detected!</div>
-  <div class="cyhi-suggestion" id="cyhi-text"></div>
-  <button class="cyhi-btn cyhi-accept" id="cyhi-accept">Replace Text</button>
-  <button class="cyhi-btn cyhi-ignore" id="cyhi-ignore">Ignore</button>
-`;
-document.body.appendChild(popup);
-
-let activeInputField = null;
-document.addEventListener('focusin', (e) => {
-    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.isContentEditable) {
-        activeInputField = e.target;
-    }
-});
-
-// --- 100% OFFLINE EDGE COMPUTE ENGINE ---
+// --- DICTIONARIES ---
 
 const filler_swear_words = [
     "mc", "bc", "b.c.", "m.c.", "mkc", "bsdk", "bkl", "bck", "madarchod", "behenchod", "bhenchod", 
@@ -88,62 +67,164 @@ const englishToxicWords = [
 ];
 
 const englishReplacementMap = {
-  // Intensifiers (Makes sentences like "fucking terrible" -> "seriously terrible")
-  "fucking": "seriously",
-  "fucked": "messed up",
-  "fuck": "mess up",
-  "goddamn": "darn",
-  "shitty": "terrible",
-  "pissed": "annoyed",
-
-  // Direct Insults (Natural tone, not robotic)
-  "asshole": "jerk",
-  "ass": "attitude",
-  "bastard": "troublemaker",
-  "bitch": "jerk",
-  "bitches": "critics",
-  "bitching": "complaining",
-  "dickhead": "jerk",
-  "dick": "jerk",
-  "dumbass": "fool",
-  "idiot": "fool",
-  "idiotic": "ridiculous",
-  "jackass": "jerk",
-  "moron": "fool",
-  "moronic": "senseless",
-  "scumbag": "creep",
-  "loser": "slacker",
-  "pathetic": "sad",
-  "useless": "unhelpful",
-  "worthless": "pointless",
-
+  // Intensifiers 
+  "fucking": "seriously", "fucked": "messed up", "fuck": "mess up", "goddamn": "darn", "shitty": "terrible", "pissed": "annoyed",
+  // Direct Insults 
+  "asshole": "jerk", "ass": "attitude", "bastard": "troublemaker", "bitch": "jerk", "bitches": "critics", "bitching": "complaining", 
+  "dickhead": "jerk", "dick": "jerk", "dumbass": "fool", "idiot": "fool", "idiotic": "ridiculous", "jackass": "jerk", 
+  "moron": "fool", "moronic": "senseless", "scumbag": "creep", "loser": "slacker", "pathetic": "sad", "useless": "unhelpful", "worthless": "pointless",
   // Vulgar Nouns
-  "bullshit": "nonsense",
-  "horseshit": "nonsense",
-  "crap": "garbage",
-  "shit": "mess",
-
+  "bullshit": "nonsense", "horseshit": "nonsense", "crap": "garbage", "shit": "mess",
   // Directives / Aggression
-  "shut up": "be quiet",
-  "stfu": "quiet down",
-  "kill yourself": "calm down",
-  "kys": "chill out",
-  "drop dead": "walk away",
-
-  // Slurs & Extreme Vulgarity (Never replace with mild words; mask directly)
-  "cunt": "c***t",
-  "cunts": "c***ts",
-  "motherfucker": "m***rfucker",
-  "motherfucking": "seriously",
-  "whore": "w***e",
-  "slut": "s**t",
-  "faggot": "f***ot",
-  "nigger": "n****r",
-  "nigga": "n***a"
+  "shut up": "be quiet", "stfu": "quiet down", "kill yourself": "calm down", "kys": "chill out", "drop dead": "walk away",
+  // Slurs & Extreme Vulgarity 
+  "cunt": "c***t", "cunts": "c***ts", "motherfucker": "m***rfucker", "motherfucking": "seriously", 
+  "whore": "w***e", "slut": "s**t", "faggot": "f***ot", "nigger": "n****r", "nigga": "n***a"
 };
 
 const allEnglishToxics = [...englishToxicWords];
 allEnglishToxics.sort((a, b) => b.length - a.length);
+
+const englishSevere = ["asshole", "bastard", "bitch", "cunt", "dick", "fag", "faggot", "fuck", "fucker", "fucking", "motherfucker", "nigga", "nigger", "pussy", "slut", "whore", "kill yourself", "kys"];
+const englishMild = ["ass", "bullshit", "crap", "craphead", "creep", "dolt", "dunce", "fatass", "freak", "garbage", "idiot", "idiotic", "ignorant", "loser", "lunatic", "moron", "moronic", "nerd", "pathetic", "rubbish", "scumbag", "shit", "shitty", "shut up", "simp", "trash", "troll", "ugly", "useless"];
+
+
+// --- INJECT UNIFIED UI ---
+
+const sidebar = document.createElement('div');
+sidebar.id = 'cyhi-sidebar';
+sidebar.innerHTML = `
+  <div class="cyhi-tool cyhi-tool-icon" id="btn-pause" title="Play/Pause Scanner">⏸</div>
+  <div class="cyhi-tool cyhi-tool-icon" id="btn-hoverer" title="Hover Scanner Tool">🔍</div>
+  <div class="cyhi-tool cyhi-tool-icon" id="btn-unblur" title="Unblur Tool">👁</div>
+  <div class="cyhi-tool" id="btn-vibe-check" title="Vibe Check Textbox">✨ Vibe Check</div>
+  <div class="cyhi-tool" id="cyhi-rating-box" title="Global Toxicity Level">00</div>
+`;
+document.body.appendChild(sidebar);
+
+const popup = document.createElement('div');
+popup.id = 'cyhi-tooltip';
+popup.innerHTML = `
+  <div class="cyhi-header">⚠️ Toxicity Detected!</div>
+  <div class="cyhi-suggestion" id="cyhi-text"></div>
+  <button class="cyhi-btn cyhi-accept" id="cyhi-accept">Replace Text</button>
+  <button class="cyhi-btn cyhi-ignore" id="cyhi-ignore">Ignore</button>
+`;
+document.body.appendChild(popup);
+
+const ratingBox = document.getElementById('cyhi-rating-box');
+const btnPause = document.getElementById('btn-pause');
+const btnHoverer = document.getElementById('btn-hoverer');
+const btnUnblur = document.getElementById('btn-unblur');
+const vibeButton = document.getElementById('btn-vibe-check');
+
+// --- UNIFIED STATE ---
+let globalMaxToxicity = 0;
+let isPaused = false;
+let currentMode = 'default';
+let isExpanded = false;
+let activeInputField = null;
+
+
+// --- UI EVENT LISTENERS ---
+
+ratingBox.addEventListener('click', () => {
+    isExpanded = !isExpanded;
+    if (isExpanded) {
+        sidebar.classList.add('expanded');
+    } else {
+        sidebar.classList.remove('expanded');
+    }
+});
+
+document.addEventListener('focusin', (e) => {
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.isContentEditable) {
+        activeInputField = e.target;
+    }
+});
+
+function updateRatingUI(score) {
+    let formattedScore = score.toString().padStart(2, '0');
+    ratingBox.innerText = formattedScore;
+    ratingBox.style.color = "#ffffff";
+}
+
+btnPause.addEventListener('click', () => {
+    isPaused = !isPaused;
+    if (isPaused) {
+        btnPause.innerText = '▶';
+        document.body.classList.add('cyhi-paused');
+        ratingBox.innerText = '--';
+    } else {
+        btnPause.innerText = '⏸';
+        document.body.classList.remove('cyhi-paused');
+        updateRatingUI(globalMaxToxicity);
+    }
+});
+
+btnHoverer.addEventListener('click', () => {
+    if (currentMode === 'hoverer') {
+        currentMode = 'default';
+        btnHoverer.classList.remove('active');
+        document.body.classList.remove('cyhi-mode-hoverer');
+        updateRatingUI(globalMaxToxicity);
+    } else {
+        currentMode = 'hoverer';
+        btnHoverer.classList.add('active');
+        btnUnblur.classList.remove('active');
+        document.body.classList.add('cyhi-mode-hoverer');
+        document.body.classList.remove('cyhi-mode-unblur');
+        ratingBox.innerText = '00';
+    }
+});
+
+btnUnblur.addEventListener('click', () => {
+    if (currentMode === 'unblur') {
+        currentMode = 'default';
+        btnUnblur.classList.remove('active');
+        document.body.classList.remove('cyhi-mode-unblur');
+        document.querySelectorAll('.cyhi-unblurred-override').forEach(el => {
+            el.classList.remove('cyhi-unblurred-override');
+        });
+    } else {
+        currentMode = 'unblur';
+        btnUnblur.classList.add('active');
+        btnHoverer.classList.remove('active');
+        document.body.classList.add('cyhi-mode-unblur');
+        document.body.classList.remove('cyhi-mode-hoverer');
+        updateRatingUI(globalMaxToxicity);
+    }
+});
+
+document.addEventListener('mouseover', (e) => {
+    if (currentMode === 'hoverer' && !isPaused) {
+        if (e.target.hasAttribute('data-toxic-score')) {
+            updateRatingUI(e.target.getAttribute('data-toxic-score'));
+        } else {
+            let text = e.target.innerText || e.target.textContent || "";
+            if (text.length > 2) {
+                let s = calculateScore(text);
+                updateRatingUI(s);
+            } else {
+                updateRatingUI(0);
+            }
+        }
+    }
+});
+
+document.addEventListener('click', (e) => {
+    if (currentMode === 'unblur' && !isPaused) {
+        if (e.target.classList.contains('cyhi-blurred') || e.target.closest('.cyhi-blurred')) {
+            e.preventDefault();
+            e.stopPropagation();
+            let el = e.target.classList.contains('cyhi-blurred') ? e.target : e.target.closest('.cyhi-blurred');
+            el.classList.add('cyhi-unblurred-override');
+        }
+    }
+}, true);
+
+
+// --- TEXT PROCESSING LOGIC ---
 
 function normalizeLeetspeak(text) {
     const map = {'0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '@': 'a', '$': 's'};
@@ -165,6 +246,17 @@ function makeSafeRegex(word) {
     }
 }
 
+function calculateScore(text) {
+    let score = 0;
+    hinglish_swear_words.forEach(word => { if (makeSafeRegex(word).test(text)) score += 90; });
+    englishSevere.forEach(word => { if (makeSafeRegex(word).test(text)) score += 90; });
+    englishMild.forEach(word => { if (makeSafeRegex(word).test(text)) score += 40; });
+    return Math.min(score, 100);
+}
+
+
+// --- OBJECTIVE 4: VIBE CHECK BEFORE POSTING ---
+
 vibeButton.addEventListener('click', async () => {
     if (!activeInputField) {
         alert("CYHI: Please click inside a text box first so I know what to vibe check!");
@@ -179,15 +271,12 @@ vibeButton.addEventListener('click', async () => {
     let politeVersion = normalized;
     let lowerNorm = normalized.toLowerCase();
     
-    // 1. Check English Replacement Map
     for (const [toxic, polite] of Object.entries(englishReplacementMap)) {
         if (lowerNorm.includes(toxic.toLowerCase())) {
             isToxic = true;
             politeVersion = politeVersion.replace(makeSafeRegex(toxic), polite);
         }
     }
-    
-    // 2. Check remaining English words (censor if no exact replacement exists)
     for (let word of allEnglishToxics) {
         if (!englishReplacementMap[word]) {
             if (lowerNorm.includes(word.toLowerCase())) {
@@ -196,8 +285,6 @@ vibeButton.addEventListener('click', async () => {
             }
         }
     }
-    
-    // 3. Check Hinglish / Hindi
     for (let word of hinglish_swear_words) {
         if (lowerNorm.includes(word.toLowerCase())) {
             isToxic = true;
@@ -209,7 +296,6 @@ vibeButton.addEventListener('click', async () => {
         }
     }
     
-    // Clean up spaces
     politeVersion = politeVersion.replace(/\s+/g, ' ').trim();
     
     if (isToxic) {
@@ -244,3 +330,52 @@ function showPopup(suggestion, targetElement) {
         popup.style.display = 'none';
     };
 }
+
+
+// --- OBJECTIVE 1: LIVE FEED SCANNER ---
+
+function scanNode(node) {
+    if (isPaused) return;
+    if (node.nodeName === 'SCRIPT' || node.nodeName === 'STYLE' || node.nodeName === 'NOSCRIPT') return;
+    
+    if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent.trim();
+        if (text.length < 3) return;
+        
+        let score = calculateScore(text);
+        if (score > 0) {
+            let parent = node.parentElement;
+            if (parent && !parent.hasAttribute('data-toxic-score') && parent.id !== 'cyhi-sidebar') {
+                parent.setAttribute('data-toxic-score', score);
+                
+                if (score > globalMaxToxicity) {
+                    globalMaxToxicity = score;
+                    if (currentMode !== 'hoverer') updateRatingUI(globalMaxToxicity);
+                }
+                
+                if (score >= 80) {
+                    parent.classList.add('cyhi-blurred');
+                }
+            }
+        }
+    } else {
+        node.childNodes.forEach(scanNode);
+    }
+}
+
+// Initial full page scan
+setTimeout(() => { scanNode(document.body); }, 1000);
+
+// Watch for new content (like scrolling down)
+const observer = new MutationObserver((mutations) => {
+    if (isPaused) return;
+    mutations.forEach(mutation => {
+        mutation.addedNodes.forEach(node => {
+            if (node.nodeType === Node.ELEMENT_NODE && node.id !== 'cyhi-sidebar') {
+                scanNode(node);
+            }
+        });
+    });
+});
+
+observer.observe(document.body, { childList: true, subtree: true });

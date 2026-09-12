@@ -15,7 +15,7 @@
 Anyone with Google Chrome, Microsoft Edge, Brave, or Opera can install and use Local NSFW Shield in 30 seconds:
 
 ### Option 1: Direct ZIP Download (Recommended)
-1. **[👉 Click here to Download `local-nsfw-shield-extension.zip`](https://github.com/Pm1410/Blur_it/raw/main/release/local-nsfw-shield-extension.zip)**.
+1. **[👉 Click here to Download `local-nsfw-shield-extension.zip`](https://github.com/Pm1410/Blur_it/raw/master/release/local-nsfw-shield-extension.zip)** *(Direct 1-click download)*
 2. Unzip the downloaded folder on your computer.
 3. Open your browser and navigate to:
    ```text
@@ -37,7 +37,9 @@ Then in `chrome://extensions`, click **Load unpacked** and select the `extension
 ## 🌟 Key Features
 
 - 🔒 **100% On-Device Privacy:** All neural network inference executes locally in WebAssembly via ONNX Runtime Web. Zero pixels, URLs, or metadata are ever transmitted over the network.
-- ⚡ **Ultra-Low Latency:** Optimized lightweight custom CNN (~405k parameters, 1.6 MB ONNX footprint) processes images in **~15–25 ms**.
+- ⚡ **Ultra-Low Latency:** Optimized 5-block Deep Residual CNN with Squeeze-and-Excitation attention (~928k parameters, 3.63 MB ONNX footprint) processes images in **~15–25 ms**.
+- 🩹 **High-Accuracy Trauma & Wound Shielding:** Multi-scale photographic texture trained against 8 realistic trauma patterns (abrasions, road rash, stitches, lacerations, scabs, and severe bruising).
+- 👤 **Zero Face False-Positives:** Explicitly calibrated and trained with diverse human face portraits across Fitzpatrick skin tones I–VI so everyday web browsing and social media portraits stay clean and unblurred.
 - 👁️ **Smart Non-Destructive Blur & Click-to-Reveal:** Unsafe images are blurred with a CSS filter and tagged with a confidence badge (`⚠️ NSFW (98%)` or `⚠️ GRAPHIC (95%)`). Click **Reveal** anytime to toggle the blur.
 - 🎛️ **Live Sensitivity Slider:** Adjust the classification threshold dynamically from **0.10 to 0.90** via the toolbar popup.
 - 🔄 **MutationObserver + IntersectionObserver:** Automatically detects newly loaded or dynamically injected images and scans images as they enter the viewport without slowing down scrolling.
@@ -64,12 +66,12 @@ A test page is bundled directly inside the extension:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ 1. Model Development (Python / PyTorch)                     │
-│    - Custom 4-block CNN trained from scratch (random init)   │
+│    - Custom 5-block Residual CNN + SE Attention (from scratch)│
 │    - Input: 128x128x3 RGB                                   │
 │    - Output: 3 classes (Safe / NSFW / Graphic)               │
 │    - Exported to ONNX (opset 18)                            │
 └──────────────────────────────┬──────────────────────────────┘
-                               │ (nsfw_model.onnx, ~1.6 MB)
+                               │ (nsfw_model.onnx, ~3.63 MB)
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ 2. Chrome Extension (Manifest V3)                           │

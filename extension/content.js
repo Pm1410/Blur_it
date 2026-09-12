@@ -45,7 +45,7 @@ const adjective_swear_words = [
     "चुदवाना", "haramia", "हरामिया", "haramzada", "haramzadi", "हरामज़ादी", "haramkhor", "हरामख़ोर", "kamini", 
     "कमीनी", "bhosdi", "भोसड़ी", "bhosdike", "भोसड़ीके", "bhandi", "भंडी", "rand", "randwa", 
     "रांडवा", "randibazaar", "रांडिबाजार", "hijade", "हिजड़े", "gandu", "गंडू", "लवड़ा", "lundwa", "लंडवा", 
-    "chutmar", "चूतमार", "chutiyapa", "चूतियापा"
+    "chutmar", "चूतमार", "chutiyapa", "चूतियापा", "loundiya", "लौंडिया", "lulli", "लुल्ली", "maar", "मार"
 ];
 const hinglish_swear_words = filler_swear_words.concat(adjective_swear_words);
 hinglish_swear_words.sort((a, b) => b.length - a.length);
@@ -85,7 +85,7 @@ const englishReplacementMap = {
 const allEnglishToxics = [...englishToxicWords];
 allEnglishToxics.sort((a, b) => b.length - a.length);
 
-const englishSevere = ["asshole", "bastard", "bitch", "cunt", "dick", "fag", "faggot", "fuck", "fucker", "fucking", "motherfucker", "nigga", "nigger", "pussy", "slut", "whore", "kill yourself", "kys"];
+const englishSevere = ["asshole", "bastard", "bitch", "cunt", "dick", "fag", "faggot", "fuck", "fucker", "fucking", "motherfucker", "nigga", "nigger", "pussy", "slut", "whore", "kill yourself", "kys", "prostitute", "penis"];
 const englishMild = ["ass", "bullshit", "crap", "craphead", "creep", "dolt", "dunce", "fatass", "freak", "garbage", "idiot", "idiotic", "ignorant", "loser", "lunatic", "moron", "moronic", "nerd", "pathetic", "rubbish", "scumbag", "shit", "shitty", "shut up", "simp", "trash", "troll", "ugly", "useless"];
 
 

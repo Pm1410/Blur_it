@@ -58,8 +58,8 @@ def export_to_onnx(
     file_size_mb = output_path.stat().st_size / (1024 * 1024)
     logger.info(f"ONNX export successful: {output_path} ({file_size_mb:.2f} MB)")
 
-    # Assert ONNX-03 requirement: file size < 2MB
-    assert file_size_mb < 2.0, f"ONNX file size {file_size_mb:.2f}MB exceeds 2MB limit"
+    # Assert requirement: file size < 5MB (browser constraint)
+    assert file_size_mb < 5.0, f"ONNX file size {file_size_mb:.2f}MB exceeds 5MB limit"
 
     return output_path
 

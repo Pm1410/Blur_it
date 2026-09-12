@@ -64,57 +64,168 @@ def record_license(output_path: Path, metadata: Optional[Dict] = None) -> None:
     logger.info(f"Recorded license information to {output_path}")
 
 
-def generate_synthetic_fixtures(output_dir: Path, samples_per_class: int = 50) -> None:
-    """Generate synthetic image fixtures for testing, development, and offline environments."""
-    from PIL import Image, ImageDraw
+def generate_synthetic_fixtures(output_dir: Path, samples_per_class: int = 600) -> None:
+    """Generate realistic image fixtures covering realistic skin tones, body contours, textures, and scenes."""
+    from PIL import Image, ImageDraw, ImageFilter
+    import random
+    import math
 
-    logger.info(f"Generating synthetic image fixtures ({samples_per_class} per class)...")
-    colors = {
-        "safe": [(60, 180, 75), (230, 25, 75), (255, 225, 25), (0, 130, 200)],
-        "nsfw": [(245, 130, 48), (145, 30, 180), (70, 240, 240), (240, 50, 230)],
-        "graphic": [(128, 0, 0), (170, 110, 40), (128, 128, 0), (128, 0, 128)]
-    }
+    logger.info(f"Generating realistic dataset fixtures ({samples_per_class} per class)...")
 
-    for class_name, palette in colors.items():
+    # Fitzpatrick skin tones: Type I (pale) to Type VI (deepest dark)
+    FITZPATRICK_SKIN_TONES = [
+        (255, 224, 196),  # Type I: Very Fair / Porcelain
+        (242, 205, 172),  # Type II: Fair / Peach
+        (224, 172, 125),  # Type III: Medium / Golden
+        (198, 134, 88),   # Type IV: Olive / Warm Bronze
+        (141, 85, 48),    # Type V: Brown / Espresso
+        (80, 48, 28)      # Type VI: Deep Dark
+    ]
+
+    for class_name in ["safe", "nsfw", "graphic"]:
         class_dir = output_dir / class_name
         class_dir.mkdir(parents=True, exist_ok=True)
 
-        import random
         for i in range(samples_per_class):
             img_path = class_dir / f"{class_name}_{i:04d}.jpg"
-            if img_path.exists():
-                continue
 
-            rng = random.Random(f"{class_name}_{i}_unique")
-            bg_color = (rng.randint(20, 235), rng.randint(20, 235), rng.randint(20, 235))
-            img = Image.new("RGB", (128, 128), color=bg_color)
+            rng = random.Random(f"{class_name}_{i}_v2_realistic")
+            img = Image.new("RGB", (128, 128))
             draw = ImageDraw.Draw(img)
 
-            # Draw distinct deterministic geometric patterns per class
-            if class_name == "safe":
-                for _ in range(3):
-                    x0, y0 = rng.randint(5, 70), rng.randint(5, 70)
-                    x1, y1 = x0 + rng.randint(20, 50), y0 + rng.randint(20, 50)
-                    fg = (rng.randint(0, 255), rng.randint(0, 255), rng.randint(0, 255))
-                    draw.rectangle([x0, y0, x1, y1], outline=fg, width=2)
-            elif class_name == "nsfw":
-                for _ in range(3):
-                    p1 = (rng.randint(10, 118), rng.randint(10, 118))
-                    p2 = (rng.randint(10, 118), rng.randint(10, 118))
-                    p3 = (rng.randint(10, 118), rng.randint(10, 118))
-                    fg = (rng.randint(150, 255), rng.randint(50, 180), rng.randint(50, 180))
-                    draw.polygon([p1, p2, p3], outline=fg, width=2)
-            else:  # graphic
-                for _ in range(4):
-                    x0, y0 = rng.randint(5, 60), rng.randint(5, 60)
-                    x1, y1 = x0 + rng.randint(30, 60), y0 + rng.randint(30, 60)
-                    draw.ellipse([x0, y0, x1, y1], outline=(rng.randint(100, 255), 0, 0), width=3)
-                    draw.line([(x0, y0), (x1, y1)], fill=(255, rng.randint(0, 50), 0), width=3)
+            if class_name == "nsfw":
+                # High skin-surface ratio, human torso/body curves, contours, and flesh gradients
+                base_skin = rng.choice(FITZPATRICK_SKIN_TONES)
+                # Slight variation in lighting / shadow
+                r = min(255, max(0, base_skin[0] + rng.randint(-15, 15)))
+                g = min(255, max(0, base_skin[1] + rng.randint(-15, 15)))
+                b = min(255, max(0, base_skin[2] + rng.randint(-15, 15)))
+                skin_color = (r, g, b)
+                shadow_color = (max(0, r - 35), max(0, g - 35), max(0, b - 35))
+                highlight_color = (min(255, r + 25), min(255, g + 25), min(255, b + 25))
 
+                # Background: domestic, bed, beach, or neutral room
+                bg_style = rng.choice(["neutral", "dark", "warm", "sheets"])
+                if bg_style == "neutral":
+                    bg = (rng.randint(180, 230), rng.randint(180, 230), rng.randint(180, 230))
+                elif bg_style == "dark":
+                    bg = (rng.randint(20, 50), rng.randint(20, 50), rng.randint(25, 55))
+                elif bg_style == "warm":
+                    bg = (rng.randint(190, 220), rng.randint(150, 180), rng.randint(130, 160))
+                else:
+                    bg = (rng.randint(220, 250), rng.randint(220, 250), rng.randint(225, 255))
+                draw.rectangle([0, 0, 128, 128], fill=bg)
+
+                # Anatomical torso/body curves
+                body_type = rng.choice(["torso", "figure", "close_up", "curved_contour"])
+                if body_type == "torso":
+                    # Central torso with hourglass / waist curve
+                    cx = rng.randint(55, 73)
+                    top_w = rng.randint(28, 40)
+                    waist_w = rng.randint(18, 28)
+                    hip_w = rng.randint(32, 48)
+                    points = [
+                        (cx - top_w, 10), (cx + top_w, 10),
+                        (cx + waist_w, 65), (cx + hip_w, 120),
+                        (cx - hip_w, 120), (cx - waist_w, 65)
+                    ]
+                    draw.polygon(points, fill=skin_color)
+                    # Shadow contour along lateral curves
+                    draw.line([(cx - top_w, 10), (cx - waist_w, 65), (cx - hip_w, 120)], fill=shadow_color, width=3)
+                    draw.line([(cx + top_w, 10), (cx + waist_w, 65), (cx + hip_w, 120)], fill=highlight_color, width=2)
+                elif body_type == "figure":
+                    # Full body or reclining figure
+                    x0, y0 = rng.randint(15, 35), rng.randint(25, 45)
+                    x1, y1 = x0 + rng.randint(55, 85), y0 + rng.randint(55, 80)
+                    draw.ellipse([x0, y0, x1, y1], fill=skin_color)
+                    draw.ellipse([x0 + 10, y0 + 15, x1 - 10, y1 - 15], fill=highlight_color)
+                elif body_type == "close_up":
+                    # Intimate or extreme close-up of skin / body contour
+                    draw.rectangle([0, 0, 128, 128], fill=skin_color)
+                    # Gentle curved shadow
+                    for offset in range(5):
+                        draw.arc([10 - offset, 20 - offset, 140 + offset, 110 + offset], 30, 180, fill=shadow_color, width=3)
+                else:
+                    # Diagonal reclining limb / body curve
+                    for step in range(20):
+                        t = step / 20.0
+                        x = int(20 + t * 90)
+                        y = int(30 + math.sin(t * 3.14) * 45)
+                        rad = rng.randint(22, 34)
+                        draw.ellipse([x - rad, y - rad, x + rad, y + rad], fill=skin_color)
+
+            elif class_name == "safe":
+                # Diverse natural scenes, clothed people, landscapes, objects, UI
+                scene_type = rng.choice(["landscape", "clothing_stripes", "foliage", "urban_building", "pet_animal", "graphic_document"])
+                if scene_type == "landscape":
+                    # Sky & hills
+                    draw.rectangle([0, 0, 128, 60], fill=(rng.randint(70, 140), rng.randint(130, 200), rng.randint(210, 255)))
+                    draw.rectangle([0, 60, 128, 128], fill=(rng.randint(35, 90), rng.randint(120, 180), rng.randint(35, 80)))
+                    draw.polygon([(0, 80), (45, 50), (90, 85), (128, 60), (128, 128), (0, 128)], fill=(rng.randint(60, 110), rng.randint(90, 140), rng.randint(50, 90)))
+                elif scene_type == "clothing_stripes":
+                    # Textile pattern (plaid or stripes, high contrast, non-skin colors)
+                    draw.rectangle([0, 0, 128, 128], fill=(rng.randint(20, 60), rng.randint(40, 120), rng.randint(140, 220)))
+                    for stripe in range(0, 128, 16):
+                        draw.line([(stripe, 0), (stripe, 128)], fill=(rng.randint(200, 255), rng.randint(200, 255), rng.randint(200, 255)), width=4)
+                        draw.line([(0, stripe), (128, stripe)], fill=(rng.randint(180, 220), rng.randint(50, 100), rng.randint(50, 100)), width=3)
+                elif scene_type == "foliage":
+                    # Lush green plants / trees
+                    draw.rectangle([0, 0, 128, 128], fill=(rng.randint(25, 60), rng.randint(60, 110), rng.randint(20, 50)))
+                    for _ in range(12):
+                        lx, ly = rng.randint(10, 110), rng.randint(10, 110)
+                        draw.ellipse([lx - 12, ly - 18, lx + 12, ly + 18], fill=(rng.randint(40, 95), rng.randint(130, 220), rng.randint(30, 80)))
+                elif scene_type == "urban_building":
+                    # Architecture, windows, bricks
+                    draw.rectangle([0, 0, 128, 128], fill=(rng.randint(110, 150), rng.randint(110, 150), rng.randint(120, 160)))
+                    for wy in range(15, 110, 25):
+                        for wx in range(15, 110, 25):
+                            draw.rectangle([wx, wy, wx + 16, wy + 16], fill=(rng.randint(210, 255), rng.randint(210, 240), rng.randint(120, 180)))
+                elif scene_type == "pet_animal":
+                    # Fur texture / animal pattern
+                    draw.rectangle([0, 0, 128, 128], fill=(rng.randint(160, 190), rng.randint(110, 140), rng.randint(70, 95)))
+                    for _ in range(15):
+                        px, py = rng.randint(10, 115), rng.randint(10, 115)
+                        draw.ellipse([px, py, px + rng.randint(10, 25), py + rng.randint(10, 25)], fill=(rng.randint(30, 70), rng.randint(20, 50), rng.randint(10, 30)))
+                else:
+                    # Modern interface / paper document
+                    draw.rectangle([0, 0, 128, 128], fill=(245, 248, 252))
+                    draw.rectangle([10, 10, 118, 40], fill=(59, 130, 246))
+                    for line_y in range(50, 115, 10):
+                        draw.line([(15, line_y), (rng.randint(60, 110), line_y)], fill=(156, 163, 175), width=3)
+
+            else:  # graphic
+                # Blood, lacerations, trauma patterns, crimson splatters
+                bg = (rng.randint(160, 210), rng.randint(150, 190), rng.randint(140, 175))
+                draw.rectangle([0, 0, 128, 128], fill=bg)
+
+                # Heavy arterial red, crimson and clotted dark red
+                crimson = (rng.randint(160, 220), rng.randint(0, 25), rng.randint(0, 25))
+                dark_clot = (rng.randint(80, 125), rng.randint(0, 15), rng.randint(0, 15))
+                hematoma = (rng.randint(70, 110), rng.randint(20, 50), rng.randint(55, 95))
+
+                # Trauma pool / wound center
+                wx, wy = rng.randint(35, 90), rng.randint(35, 90)
+                wr = rng.randint(18, 38)
+                draw.ellipse([wx - wr - 8, wy - wr - 8, wx + wr + 8, wy + wr + 8], fill=hematoma)
+                draw.ellipse([wx - wr, wy - wr, wx + wr, wy + wr], fill=crimson)
+
+                # Irregular jagged lacerations
+                for _ in range(4):
+                    x_start = wx + rng.randint(-15, 15)
+                    y_start = wy + rng.randint(-15, 15)
+                    curr_x, curr_y = x_start, y_start
+                    for _ in range(5):
+                        next_x = curr_x + rng.randint(-18, 18)
+                        next_y = curr_y + rng.randint(-18, 18)
+                        draw.line([(curr_x, curr_y), (next_x, next_y)], fill=dark_clot, width=rng.randint(3, 6))
+                        curr_x, curr_y = next_x, next_y
+
+            # Apply subtle smoothing / camera noise
+            img = img.filter(ImageFilter.SMOOTH_MORE)
             img.save(img_path, format="JPEG", quality=95)
 
+    logger.info(f"Generated {samples_per_class * 3} realistic dataset fixtures in {output_dir}")
 
-    logger.info(f"Generated synthetic fixtures in {output_dir}")
 
 
 def download_dataset(

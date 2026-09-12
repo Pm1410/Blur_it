@@ -39,10 +39,10 @@ let currentMode = 'default'; // 'default', 'hoverer', 'unblur'
 const sidebar = document.createElement('div');
 sidebar.id = 'cyhi-sidebar';
 sidebar.innerHTML = `
-  <div class="cyhi-tool" id="cyhi-rating-box" title="Global Toxicity Level">0</div>
-  <div class="cyhi-tool" id="btn-pause" title="Play/Pause Scanner">⏸️</div>
-  <div class="cyhi-tool" id="btn-hoverer" title="Hover Scanner Tool">🎯</div>
-  <div class="cyhi-tool" id="btn-unblur" title="Unblur Tool">👁️</div>
+  <div class="cyhi-tool" id="cyhi-rating-box" title="Global Toxicity Level">00</div>
+  <div class="cyhi-tool" id="btn-pause" title="Play/Pause Scanner">||</div>
+  <div class="cyhi-tool" id="btn-hoverer" title="Hover Scanner Tool">⌖</div>
+  <div class="cyhi-tool" id="btn-unblur" title="Unblur Tool">◎</div>
 `;
 document.body.appendChild(sidebar);
 
@@ -53,21 +53,21 @@ const btnUnblur = document.getElementById('btn-unblur');
 
 // --- SIDEBAR LOGIC ---
 function updateRatingUI(score) {
-    ratingBox.innerText = score;
-    if (score >= 80) ratingBox.style.color = "#ff003c";
-    else if (score >= 40) ratingBox.style.color = "#ffeb3b";
-    else ratingBox.style.color = "#00ff9d";
+    // Format to 2 digits for aesthetic (e.g. 05, 90)
+    let formattedScore = score.toString().padStart(2, '0');
+    ratingBox.innerText = formattedScore;
+    ratingBox.style.color = "#ffffff";
 }
 
 btnPause.addEventListener('click', () => {
     isPaused = !isPaused;
     if (isPaused) {
-        btnPause.innerText = '▶️';
+        btnPause.innerText = '►';
         document.body.classList.add('cyhi-paused');
-        ratingBox.innerText = '-';
-        ratingBox.style.color = 'gray';
+        ratingBox.innerText = '--';
+        ratingBox.style.color = 'rgba(255,255,255,0.3)';
     } else {
-        btnPause.innerText = '⏸️';
+        btnPause.innerText = '||';
         document.body.classList.remove('cyhi-paused');
         updateRatingUI(globalMaxToxicity);
     }

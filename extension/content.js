@@ -88,17 +88,58 @@ const englishToxicWords = [
 ];
 
 const englishReplacementMap = {
-  "asshole": "difficult person", "ass": "attitude", "bastard": "troublemaker", "bitch": "complain", 
-  "bitches": "critics", "bitching": "grumbling", "bullshit": "nonsense", "crap": "rubbish", 
-  "cunt": "unpleasant person", "dickhead": "fool", "dick": "jerk", "dumbass": "unwise person", 
-  "fucking": "extremely", "fucked": "compromised", "fuck": "mess up", "goddamn": "frustrating", 
-  "horseshit": "inaccuracy", "idiot": "individual", "idiotic": "ill-advised", "jackass": "mischief-maker", 
-  "kill yourself": "take a step back", "kys": "cool down", "loser": "underdog", "moron": "layman", 
-  "moronic": "misguided", "motherfucker": "adversary", "pathetic": "underwhelming", "pissed": "agitated", 
-  "retard": "person with differences", "retarded": "illogical", "scumbag": "unreliable person", 
-  "shit": "mess", "shitty": "poor quality", "shut up": "please pause", "slut": "individual", 
-  "stfu": "please stop", "trash": "subpar", "useless": "ineffective", "whore": "individual", 
-  "worthless": "unproductive"
+  // Intensifiers (Makes sentences like "fucking terrible" -> "seriously terrible")
+  "fucking": "seriously",
+  "fucked": "messed up",
+  "fuck": "mess up",
+  "goddamn": "darn",
+  "shitty": "terrible",
+  "pissed": "annoyed",
+
+  // Direct Insults (Natural tone, not robotic)
+  "asshole": "jerk",
+  "ass": "attitude",
+  "bastard": "troublemaker",
+  "bitch": "jerk",
+  "bitches": "critics",
+  "bitching": "complaining",
+  "dickhead": "jerk",
+  "dick": "jerk",
+  "dumbass": "fool",
+  "idiot": "fool",
+  "idiotic": "ridiculous",
+  "jackass": "jerk",
+  "moron": "fool",
+  "moronic": "senseless",
+  "scumbag": "creep",
+  "loser": "slacker",
+  "pathetic": "sad",
+  "useless": "unhelpful",
+  "worthless": "pointless",
+
+  // Vulgar Nouns
+  "bullshit": "nonsense",
+  "horseshit": "nonsense",
+  "crap": "garbage",
+  "shit": "mess",
+
+  // Directives / Aggression
+  "shut up": "be quiet",
+  "stfu": "quiet down",
+  "kill yourself": "calm down",
+  "kys": "chill out",
+  "drop dead": "walk away",
+
+  // Slurs & Extreme Vulgarity (Never replace with mild words; mask directly)
+  "cunt": "c***t",
+  "cunts": "c***ts",
+  "motherfucker": "m***rfucker",
+  "motherfucking": "seriously",
+  "whore": "w***e",
+  "slut": "s**t",
+  "faggot": "f***ot",
+  "nigger": "n****r",
+  "nigga": "n***a"
 };
 
 const allEnglishToxics = [...englishToxicWords];

@@ -95,6 +95,11 @@ btnUnblur.addEventListener('click', () => {
         currentMode = 'default';
         btnUnblur.classList.remove('active');
         document.body.classList.remove('cyhi-mode-unblur');
+        
+        // Re-blur everything that was peeked at
+        document.querySelectorAll('.cyhi-unblurred-override').forEach(el => {
+            el.classList.remove('cyhi-unblurred-override');
+        });
     } else {
         currentMode = 'unblur';
         btnUnblur.classList.add('active');
@@ -129,8 +134,7 @@ document.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
             let el = e.target.classList.contains('cyhi-blurred') ? e.target : e.target.closest('.cyhi-blurred');
-            el.classList.remove('cyhi-blurred');
-            el.style.border = "1px dashed #ff003c";
+            el.classList.add('cyhi-unblurred-override');
         }
     }
 }, true); // Capture phase to intercept clicks on blurred items

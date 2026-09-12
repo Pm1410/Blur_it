@@ -70,6 +70,14 @@ body.cyhi-paused .cyhi-blurred {
     opacity: 1 !important;
 }
 
+/* Temporary override for when they peek using the Unblur tool */
+.cyhi-unblurred-override {
+    filter: none !important;
+    opacity: 1 !important;
+    border: 1px dashed #ff003c;
+    border-radius: 4px;
+}
+
 /* Custom Cursors for Modes */
 body.cyhi-mode-hoverer {
     cursor: crosshair !important;

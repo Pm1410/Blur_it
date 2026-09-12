@@ -124,7 +124,17 @@ let isPaused = false;
 let currentMode = 'default';
 let isExpanded = false;
 let activeInputField = null;
+let collapseTimeout = null;
 
+function resetCollapseTimer() {
+    clearTimeout(collapseTimeout);
+    if (isExpanded) {
+        collapseTimeout = setTimeout(() => {
+            isExpanded = false;
+            sidebar.classList.remove('expanded');
+        }, 10000); // 10 seconds
+    }
+}
 
 // --- UI EVENT LISTENERS ---
 
@@ -132,9 +142,19 @@ ratingBox.addEventListener('click', () => {
     isExpanded = !isExpanded;
     if (isExpanded) {
         sidebar.classList.add('expanded');
+        resetCollapseTimer();
     } else {
         sidebar.classList.remove('expanded');
+        clearTimeout(collapseTimeout);
     }
+});
+
+sidebar.addEventListener('mouseenter', () => {
+    clearTimeout(collapseTimeout);
+});
+
+sidebar.addEventListener('mouseleave', () => {
+    resetCollapseTimer();
 });
 
 document.addEventListener('focusin', (e) => {

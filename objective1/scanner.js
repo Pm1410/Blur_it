@@ -130,6 +130,7 @@ document.addEventListener('click', (e) => {
             e.stopPropagation();
             let el = e.target.classList.contains('cyhi-blurred') ? e.target : e.target.closest('.cyhi-blurred');
             el.classList.remove('cyhi-blurred');
+            el.style.border = "1px dashed #ff003c";
         }
     }
 }, true); // Capture phase to intercept clicks on blurred items

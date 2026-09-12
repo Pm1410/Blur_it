@@ -40,9 +40,9 @@ const sidebar = document.createElement('div');
 sidebar.id = 'cyhi-sidebar';
 sidebar.innerHTML = `
   <div class="cyhi-tool" id="cyhi-rating-box" title="Global Toxicity Level">00</div>
-  <div class="cyhi-tool" id="btn-pause" title="Play/Pause Scanner">||</div>
-  <div class="cyhi-tool" id="btn-hoverer" title="Hover Scanner Tool">⌖</div>
-  <div class="cyhi-tool" id="btn-unblur" title="Unblur Tool">◎</div>
+  <div class="cyhi-tool" id="btn-pause" title="Play/Pause Scanner">⏸</div>
+  <div class="cyhi-tool" id="btn-hoverer" title="Hover Scanner Tool">🎯</div>
+  <div class="cyhi-tool" id="btn-unblur" title="Unblur Tool">👁</div>
 `;
 document.body.appendChild(sidebar);
 
@@ -62,12 +62,12 @@ function updateRatingUI(score) {
 btnPause.addEventListener('click', () => {
     isPaused = !isPaused;
     if (isPaused) {
-        btnPause.innerText = '►';
+        btnPause.innerText = '▶';
         document.body.classList.add('cyhi-paused');
         ratingBox.innerText = '--';
         ratingBox.style.color = 'rgba(255,255,255,0.3)';
     } else {
-        btnPause.innerText = '||';
+        btnPause.innerText = '⏸';
         document.body.classList.remove('cyhi-paused');
         updateRatingUI(globalMaxToxicity);
     }

@@ -7,10 +7,11 @@
     right: 20px;
     transform: translateY(-50%);
     width: 60px;
-    background: rgba(20, 20, 25, 0.6);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(138, 43, 226, 0.5); /* Matching purple Vibe Check theme */
+    /* Pure Black & White Glassmorphism */
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.2); 
     border-radius: 12px;
     display: flex;
     flex-direction: column;
@@ -26,35 +27,40 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-bottom: 1px solid rgba(138, 43, 226, 0.2);
-    color: white;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 22px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* White line */
+    color: rgba(255, 255, 255, 0.7);
+    font-family: "Courier New", Courier, monospace;
+    font-size: 24px;
     cursor: pointer;
     transition: all 0.2s ease;
     user-select: none;
+    /* Force emojis to be black and white Nothing-style */
+    filter: grayscale(100%) brightness(150%) contrast(120%);
 }
 .cyhi-tool:last-child {
     border-bottom: none;
 }
 .cyhi-tool:hover {
-    background: rgba(138, 43, 226, 0.3);
+    background: rgba(255, 255, 255, 0.1); /* White highlight */
+    color: #fff;
 }
 .cyhi-tool.active {
-    background: rgba(138, 43, 226, 0.8);
+    background: rgba(255, 255, 255, 0.25); /* Strong white highlight */
     box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+    color: #fff;
 }
 
 /* The Top Rating Box */
 #cyhi-rating-box {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: bold;
-    color: #00ff9d;
+    color: #fff !important;
     cursor: default;
     background: rgba(0, 0, 0, 0.4);
+    filter: none; /* Keep crisp white */
 }
 #cyhi-rating-box:hover {
-    background: rgba(0, 0, 0, 0.4); /* Disable hover effect for rating box */
+    background: rgba(0, 0, 0, 0.4); 
 }
 
 /* The Blurred Text Elements */
@@ -74,7 +80,7 @@ body.cyhi-paused .cyhi-blurred {
 .cyhi-unblurred-override {
     filter: none !important;
     opacity: 1 !important;
-    border: 1px dashed #ff003c;
+    border: 1px dashed rgba(255, 255, 255, 0.6); /* Changed from red to white dashed */
     border-radius: 4px;
 }
 
@@ -86,6 +92,6 @@ body.cyhi-mode-unblur .cyhi-blurred {
     cursor: pointer !important;
 }
 body.cyhi-mode-unblur .cyhi-blurred:hover {
-    box-shadow: 0 0 10px rgba(0, 255, 157, 0.5);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
     border-radius: 4px;
 }

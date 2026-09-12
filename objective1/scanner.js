@@ -136,13 +136,26 @@ document.addEventListener('click', (e) => {
 
 
 // --- SCORING & SCANNING LOGIC ---
+function makeSafeRegex(word) {
+    if (/^[a-zA-Z0-9\s]+$/.test(word)) {
+        return new RegExp(`\\b${word}\\b`, 'gi');
+    } else {
+        return new RegExp(word, 'gi');
+    }
+}
+
 function calculateScore(text) {
     let score = 0;
-    let lower = text.toLowerCase();
     
-    hindiSevere.forEach(word => { if (lower.includes(word)) score += 90; });
-    englishSevere.forEach(word => { if (lower.includes(word)) score += 90; });
-    englishMild.forEach(word => { if (lower.includes(word)) score += 40; });
+    hindiSevere.forEach(word => { 
+        if (makeSafeRegex(word).test(text)) score += 90; 
+    });
+    englishSevere.forEach(word => { 
+        if (makeSafeRegex(word).test(text)) score += 90; 
+    });
+    englishMild.forEach(word => { 
+        if (makeSafeRegex(word).test(text)) score += 40; 
+    });
     
     return Math.min(score, 100);
 }

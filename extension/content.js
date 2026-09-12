@@ -234,7 +234,10 @@
       const result = await classifyTensor(tensorData, sensitivityThreshold);
       processedCache.set(cacheKey, result);
 
+      console.debug(`[NSFW Shield] ${result.topClass.toUpperCase()} (${Math.round(result.confidence * 100)}%) | Unsafe: ${(result.probabilities.unsafe * 100).toFixed(1)}%`, img.src || img);
+
       if (result.isUnsafe) {
+        console.warn(`[NSFW Shield] ⚠️ Blurring image: ${result.topClass.toUpperCase()} (${Math.round(result.confidence * 100)}%)`, img.src || img);
         applyBlurOverlay(img, result);
       }
     } catch (err) {

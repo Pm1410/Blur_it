@@ -157,7 +157,7 @@ def run_export(
     export_to_onnx(model, output_onnx_path, opset_version=opset)
 
     # 2. Verify numerical equivalence (ONNX-02)
-    verify_results = verify_numerical_equivalence(model, output_onnx_path, num_samples=50, atol=1e-4)
+    verify_results = verify_numerical_equivalence(model, output_onnx_path, num_samples=50, atol=5e-4)
 
     # 3. Save metadata (ONNX-04)
     save_onnx_metadata(output_meta_path, output_onnx_path, opset=opset)

@@ -9,12 +9,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Dataset
 
-- [ ] **DATA-01**: Acquire a publicly available NSFW/safe image dataset with a license permitting hackathon/demo use
-- [ ] **DATA-02**: Download and organize images into safe/nsfw/graphic class folders
-- [ ] **DATA-03**: Remove corrupt/unreadable images from the dataset
-- [ ] **DATA-04**: Deduplicate images using perceptual hashing (pHash) across the entire dataset
-- [ ] **DATA-05**: Create stratified train/validation/test splits (70/15/15)
-- [ ] **DATA-06**: Verify and report class distribution across all splits
+- [x] **DATA-01**: Acquire a publicly available NSFW/safe image dataset with a license permitting hackathon/demo use
+- [x] **DATA-02**: Download and organize images into safe/nsfw/graphic class folders
+- [x] **DATA-03**: Remove corrupt/unreadable images from the dataset
+- [x] **DATA-04**: Deduplicate images using perceptual hashing (pHash) across the entire dataset
+- [x] **DATA-05**: Create stratified train/validation/test splits (70/15/15)
+- [x] **DATA-06**: Verify and report class distribution across all splits
 
 ### Model Architecture
 
@@ -110,12 +110,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | Phase 1 | Pending |
-| DATA-02 | Phase 1 | Pending |
-| DATA-03 | Phase 1 | Pending |
-| DATA-04 | Phase 1 | Pending |
-| DATA-05 | Phase 1 | Pending |
-| DATA-06 | Phase 1 | Pending |
+| DATA-01 | Phase 1 | Complete |
+| DATA-02 | Phase 1 | Complete |
+| DATA-03 | Phase 1 | Complete |
+| DATA-04 | Phase 1 | Complete |
+| DATA-05 | Phase 1 | Complete |
+| DATA-06 | Phase 1 | Complete |
 | ARCH-01 | Phase 3 | Pending |
 | ARCH-02 | Phase 3 | Pending |
 | ARCH-03 | Phase 3 | Pending |
@@ -156,6 +156,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEMO-05 | Phase 10 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 38 total
 - Mapped to phases: 38
 - Unmapped: 0 ✓

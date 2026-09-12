@@ -1,7 +1,7 @@
 // scanner.js
-// 100% Offline API-less Toxicity Scanner
+// 100% Offline API-less Toxicity Scanner (Objective 1)
 
-// All Hindi/Hinglish words are highly toxic (Score: 90)
+// Dictionaries
 const hindiSevere = [
     "mc", "bc", "bsdk", "bkl", "madarchod", "behenchod", "bhosadike", "chutiya", "bakchodi", "saala", "kutta", 
     "harami", "kamina", "randi", "bhadwa", "gandu", "lodu", "laude", "lund", "chut", "gaand", "bhosdi", "tatte", 
@@ -20,13 +20,11 @@ const hindiSevere = [
     "भोसड़ी", "भोसड़ीके", "भंडी", "रांडवा", "रांडिबाजार", "हिजड़े", "गंडू", "लवड़ा", "लंडवा", "चूतमार", "चूतियापा"
 ];
 
-// Extreme English Slurs (Score: 90)
 const englishSevere = [
     "asshole", "bastard", "bitch", "cunt", "dick", "fag", "faggot", "fuck", "fucker", "fucking", 
     "motherfucker", "nigga", "nigger", "pussy", "slut", "whore", "kill yourself", "kys"
 ];
 
-// Mild English words (Score: 40) - Requires two to hit 80 threshold
 const englishMild = [
     "ass", "bullshit", "crap", "craphead", "creep", "dolt", "dunce", "fatass", "freak", "garbage", 
     "idiot", "idiotic", "ignorant", "loser", "lunatic", "moron", "moronic", "nerd", "pathetic", 
@@ -34,26 +32,110 @@ const englishMild = [
 ];
 
 let globalMaxToxicity = 0;
+let isPaused = false;
+let currentMode = 'default'; // 'default', 'hoverer', 'unblur'
 
-// Initialize the Valorant-style HUD
-const hud = document.createElement('div');
-hud.id = 'cyhi-hud';
-hud.innerHTML = `
-  <div class="hud-title">CYHI_SCANNER.EXE</div>
-  <div class="hud-score">THREAT LEVEL: <span id="hud-val">0</span>/100</div>
+// --- BUILD THE SIDEBAR UI ---
+const sidebar = document.createElement('div');
+sidebar.id = 'cyhi-sidebar';
+sidebar.innerHTML = `
+  <div class="cyhi-tool" id="cyhi-rating-box" title="Global Toxicity Level">0</div>
+  <div class="cyhi-tool" id="btn-pause" title="Play/Pause Scanner">⏸️</div>
+  <div class="cyhi-tool" id="btn-hoverer" title="Hover Scanner Tool">🎯</div>
+  <div class="cyhi-tool" id="btn-unblur" title="Unblur Tool">👁️</div>
 `;
-document.body.appendChild(hud);
+document.body.appendChild(sidebar);
 
-// Custom Cursor for Hovering
-const cursorTooltip = document.createElement('div');
-cursorTooltip.id = 'cyhi-cursor-tooltip';
-document.body.appendChild(cursorTooltip);
+const ratingBox = document.getElementById('cyhi-rating-box');
+const btnPause = document.getElementById('btn-pause');
+const btnHoverer = document.getElementById('btn-hoverer');
+const btnUnblur = document.getElementById('btn-unblur');
 
-document.addEventListener('mousemove', (e) => {
-    cursorTooltip.style.left = (e.pageX + 15) + 'px';
-    cursorTooltip.style.top = (e.pageY + 15) + 'px';
+// --- SIDEBAR LOGIC ---
+function updateRatingUI(score) {
+    ratingBox.innerText = score;
+    if (score >= 80) ratingBox.style.color = "#ff003c";
+    else if (score >= 40) ratingBox.style.color = "#ffeb3b";
+    else ratingBox.style.color = "#00ff9d";
+}
+
+btnPause.addEventListener('click', () => {
+    isPaused = !isPaused;
+    if (isPaused) {
+        btnPause.innerText = '▶️';
+        document.body.classList.add('cyhi-paused');
+        ratingBox.innerText = '-';
+        ratingBox.style.color = 'gray';
+    } else {
+        btnPause.innerText = '⏸️';
+        document.body.classList.remove('cyhi-paused');
+        updateRatingUI(globalMaxToxicity);
+    }
 });
 
+btnHoverer.addEventListener('click', () => {
+    if (currentMode === 'hoverer') {
+        currentMode = 'default';
+        btnHoverer.classList.remove('active');
+        document.body.classList.remove('cyhi-mode-hoverer');
+        updateRatingUI(globalMaxToxicity);
+    } else {
+        currentMode = 'hoverer';
+        btnHoverer.classList.add('active');
+        btnUnblur.classList.remove('active');
+        document.body.classList.add('cyhi-mode-hoverer');
+        document.body.classList.remove('cyhi-mode-unblur');
+        ratingBox.innerText = '0';
+        ratingBox.style.color = 'white';
+    }
+});
+
+btnUnblur.addEventListener('click', () => {
+    if (currentMode === 'unblur') {
+        currentMode = 'default';
+        btnUnblur.classList.remove('active');
+        document.body.classList.remove('cyhi-mode-unblur');
+    } else {
+        currentMode = 'unblur';
+        btnUnblur.classList.add('active');
+        btnHoverer.classList.remove('active');
+        document.body.classList.add('cyhi-mode-unblur');
+        document.body.classList.remove('cyhi-mode-hoverer');
+        updateRatingUI(globalMaxToxicity);
+    }
+});
+
+// --- HOVER & CLICK LOGIC ON THE PAGE ---
+document.addEventListener('mouseover', (e) => {
+    if (currentMode === 'hoverer' && !isPaused) {
+        if (e.target.hasAttribute('data-toxic-score')) {
+            updateRatingUI(e.target.getAttribute('data-toxic-score'));
+        } else {
+            // Calculate score of hovered element on the fly
+            let text = e.target.innerText || e.target.textContent || "";
+            if (text.length > 2) {
+                let s = calculateScore(text);
+                updateRatingUI(s);
+            } else {
+                updateRatingUI(0);
+            }
+        }
+    }
+});
+
+document.addEventListener('click', (e) => {
+    if (currentMode === 'unblur' && !isPaused) {
+        if (e.target.classList.contains('cyhi-blurred') || e.target.closest('.cyhi-blurred')) {
+            e.preventDefault();
+            e.stopPropagation();
+            let el = e.target.classList.contains('cyhi-blurred') ? e.target : e.target.closest('.cyhi-blurred');
+            el.classList.remove('cyhi-blurred');
+        }
+    }
+}, true); // Capture phase to intercept clicks on blurred items
+
+
+// --- SCORING & SCANNING LOGIC ---
 function calculateScore(text) {
     let score = 0;
     let lower = text.toLowerCase();
@@ -65,22 +147,8 @@ function calculateScore(text) {
     return Math.min(score, 100);
 }
 
-function updateHUD(score) {
-    if (score > globalMaxToxicity) {
-        globalMaxToxicity = score;
-        document.getElementById('hud-val').innerText = globalMaxToxicity;
-        if (globalMaxToxicity >= 80) {
-            hud.style.borderColor = "#ff003c"; // Valorant Red
-            hud.style.color = "#ff003c";
-        } else if (globalMaxToxicity >= 40) {
-            hud.style.borderColor = "#ffeb3b"; // Yellow
-            hud.style.color = "#ffeb3b";
-        }
-    }
-}
-
 function scanNode(node) {
-    // Skip script/style tags and already scanned elements
+    if (isPaused) return;
     if (node.nodeName === 'SCRIPT' || node.nodeName === 'STYLE' || node.nodeName === 'NOSCRIPT') return;
     
     if (node.nodeType === Node.TEXT_NODE) {
@@ -90,29 +158,16 @@ function scanNode(node) {
         let score = calculateScore(text);
         if (score > 0) {
             let parent = node.parentElement;
-            if (parent && !parent.hasAttribute('data-toxic-score')) {
+            if (parent && !parent.hasAttribute('data-toxic-score') && parent.id !== 'cyhi-sidebar') {
                 parent.setAttribute('data-toxic-score', score);
-                updateHUD(score);
+                
+                if (score > globalMaxToxicity) {
+                    globalMaxToxicity = score;
+                    if (currentMode !== 'hoverer') updateRatingUI(globalMaxToxicity);
+                }
                 
                 if (score >= 80) {
                     parent.classList.add('cyhi-blurred');
-                    
-                    // Add mouse events for the cursor scanner
-                    parent.addEventListener('mouseenter', () => {
-                        cursorTooltip.style.display = 'block';
-                        cursorTooltip.innerText = `Toxicity: ${score}/100`;
-                    });
-                    parent.addEventListener('mouseleave', () => {
-                        cursorTooltip.style.display = 'none';
-                    });
-                    
-                    // Click to unblur
-                    parent.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        parent.classList.remove('cyhi-blurred');
-                        parent.style.border = "1px dashed #ff003c";
-                        cursorTooltip.style.display = 'none';
-                    }, { once: true });
                 }
             }
         }
@@ -122,15 +177,14 @@ function scanNode(node) {
 }
 
 // Initial full page scan
-setTimeout(() => {
-    scanNode(document.body);
-}, 1000);
+setTimeout(() => { scanNode(document.body); }, 1000);
 
-// Watch for new content (like scrolling down on Twitter/YouTube)
+// Watch for new content (like scrolling down)
 const observer = new MutationObserver((mutations) => {
+    if (isPaused) return;
     mutations.forEach(mutation => {
         mutation.addedNodes.forEach(node => {
-            if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.nodeType === Node.ELEMENT_NODE && node.id !== 'cyhi-sidebar') {
                 scanNode(node);
             }
         });

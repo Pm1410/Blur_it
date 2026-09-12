@@ -97,7 +97,7 @@ sidebar.innerHTML = `
   <div class="cyhi-tool cyhi-tool-icon" id="btn-pause" title="Play/Pause Scanner">⏸</div>
   <div class="cyhi-tool cyhi-tool-icon" id="btn-hoverer" title="Hover Scanner Tool">🔍</div>
   <div class="cyhi-tool cyhi-tool-icon" id="btn-unblur" title="Unblur Tool">👁</div>
-  <div class="cyhi-tool" id="btn-vibe-check" title="Vibe Check Textbox">✨ Vibe Check</div>
+  <div class="cyhi-tool" id="btn-vibe-check" title="Vibe Check Textbox">V-C</div>
   <div class="cyhi-tool" id="cyhi-rating-box" title="Global Toxicity Level">00</div>
 `;
 document.body.appendChild(sidebar);
@@ -132,6 +132,7 @@ function resetCollapseTimer() {
         collapseTimeout = setTimeout(() => {
             isExpanded = false;
             sidebar.classList.remove('expanded');
+            vibeButton.innerText = 'V-C';
         }, 10000); // 10 seconds
     }
 }
@@ -142,9 +143,11 @@ ratingBox.addEventListener('click', () => {
     isExpanded = !isExpanded;
     if (isExpanded) {
         sidebar.classList.add('expanded');
+        vibeButton.innerText = 'Vibe Check';
         resetCollapseTimer();
     } else {
         sidebar.classList.remove('expanded');
+        vibeButton.innerText = 'V-C';
         clearTimeout(collapseTimeout);
     }
 });

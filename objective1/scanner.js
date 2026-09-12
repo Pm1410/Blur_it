@@ -100,7 +100,7 @@ function scanNode(node) {
                     // Add mouse events for the cursor scanner
                     parent.addEventListener('mouseenter', () => {
                         cursorTooltip.style.display = 'block';
-                        cursorTooltip.innerText = \`Toxicity: \${score}/100\`;
+                        cursorTooltip.innerText = `Toxicity: ${score}/100`;
                     });
                     parent.addEventListener('mouseleave', () => {
                         cursorTooltip.style.display = 'none';

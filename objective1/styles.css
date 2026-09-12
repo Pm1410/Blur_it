@@ -3,31 +3,38 @@
 /* Sidebar Container */
 #cyhi-sidebar {
     position: fixed;
-    top: 50%;
+    bottom: 20px;
     right: 20px;
-    transform: translateY(-50%);
-    width: 60px;
+    height: 60px;
+    width: 60px; /* Collapsed width */
     /* Pure Black & White Glassmorphism */
     background: rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(15px);
     -webkit-backdrop-filter: blur(15px);
     border: 1px solid rgba(255, 255, 255, 0.2); 
-    border-radius: 12px;
+    border-radius: 30px; /* Pill shape */
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    justify-content: flex-end;
     z-index: 999999;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
     overflow: hidden;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#cyhi-sidebar.expanded {
+    width: 240px; /* 4 tools * 60px */
 }
 
 /* Tool Buttons */
 .cyhi-tool {
-    width: 100%;
+    width: 60px;
+    min-width: 60px; /* Prevent flex shrink */
     height: 60px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* White line */
+    border-right: 1px solid rgba(255, 255, 255, 0.1); 
     color: rgba(255, 255, 255, 0.7);
     font-family: "Courier New", Courier, monospace;
     font-size: 24px;
@@ -38,7 +45,7 @@
     filter: grayscale(100%) brightness(150%) contrast(120%);
 }
 .cyhi-tool:last-child {
-    border-bottom: none;
+    border-right: none;
 }
 .cyhi-tool:hover {
     background: rgba(255, 255, 255, 0.1); /* White highlight */
@@ -52,15 +59,15 @@
 
 /* The Top Rating Box */
 #cyhi-rating-box {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: bold;
     color: #fff !important;
-    cursor: default;
-    background: rgba(0, 0, 0, 0.4);
+    background: transparent;
     filter: none; /* Keep crisp white */
+    cursor: pointer;
 }
 #cyhi-rating-box:hover {
-    background: rgba(0, 0, 0, 0.4); 
+    background: rgba(255, 255, 255, 0.1); 
 }
 
 /* The Blurred Text Elements */

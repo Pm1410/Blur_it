@@ -39,10 +39,10 @@ let currentMode = 'default'; // 'default', 'hoverer', 'unblur'
 const sidebar = document.createElement('div');
 sidebar.id = 'cyhi-sidebar';
 sidebar.innerHTML = `
-  <div class="cyhi-tool" id="cyhi-rating-box" title="Global Toxicity Level">00</div>
   <div class="cyhi-tool" id="btn-pause" title="Play/Pause Scanner">⏸</div>
-  <div class="cyhi-tool" id="btn-hoverer" title="Hover Scanner Tool">🎯</div>
+  <div class="cyhi-tool" id="btn-hoverer" title="Hover Scanner Tool">🔍</div>
   <div class="cyhi-tool" id="btn-unblur" title="Unblur Tool">👁</div>
+  <div class="cyhi-tool" id="cyhi-rating-box" title="Global Toxicity Level">00</div>
 `;
 document.body.appendChild(sidebar);
 
@@ -52,6 +52,17 @@ const btnHoverer = document.getElementById('btn-hoverer');
 const btnUnblur = document.getElementById('btn-unblur');
 
 // --- SIDEBAR LOGIC ---
+let isExpanded = false;
+
+ratingBox.addEventListener('click', () => {
+    isExpanded = !isExpanded;
+    if (isExpanded) {
+        sidebar.classList.add('expanded');
+    } else {
+        sidebar.classList.remove('expanded');
+    }
+});
+
 function updateRatingUI(score) {
     // Format to 2 digits for aesthetic (e.g. 05, 90)
     let formattedScore = score.toString().padStart(2, '0');

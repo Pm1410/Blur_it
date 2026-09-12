@@ -35,10 +35,12 @@ def get_transforms(
     """
     if is_training:
         transform_list = [
-            transforms.Resize(image_size),
+            transforms.RandomResizedCrop(image_size, scale=(0.5, 1.0), ratio=(0.75, 1.33)),
             transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomRotation(degrees=15),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2),
+            transforms.RandomVerticalFlip(p=0.2),
+            transforms.RandomRotation(degrees=20),
+            transforms.ColorJitter(brightness=0.25, contrast=0.25, saturation=0.25, hue=0.05),
+            transforms.RandomApply([transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 2.0))], p=0.25),
             transforms.ToTensor(),
             transforms.Normalize(mean=NORM_MEAN, std=NORM_STD)
         ]

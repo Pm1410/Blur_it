@@ -10,6 +10,12 @@ from typing import Dict, List, Optional
 import urllib.request
 import urllib.error
 
+import random
+import math
+import numpy as np
+import scipy.ndimage as ndi
+from PIL import Image, ImageDraw, ImageFilter
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -62,6 +68,39 @@ def record_license(output_path: Path, metadata: Optional[Dict] = None) -> None:
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
     logger.info(f"Recorded license information to {output_path}")
+
+
+def apply_photographic_texture(img, rng: random.Random) -> Image.Image:
+    """Transform synthetic vectors into photographic quality with lighting, skin pores, and camera grain."""
+    import numpy as np
+    import scipy.ndimage as ndi
+    from PIL import Image, ImageFilter
+
+    arr = np.array(img, dtype=np.float32)
+    np_rng = np.random.default_rng(rng.randint(0, 1000000))
+
+    # 1. Soft directional lighting gradient across image (ambient + directional key light)
+    light_angle = rng.uniform(0, 2 * math.pi)
+    x_grid, y_grid = np.meshgrid(np.linspace(-1, 1, 128), np.linspace(-1, 1, 128))
+    grad = (math.cos(light_angle) * x_grid + math.sin(light_angle) * y_grid) * rng.uniform(10.0, 22.0)
+    arr += grad[:, :, np.newaxis]
+
+    # 2. Organic multi-scale skin noise (coarse skin tone modulation, medium texture, fine grain)
+    raw_noise = np_rng.standard_normal((128, 128), dtype=np.float32)
+    coarse_shading = ndi.gaussian_filter(raw_noise, sigma=rng.uniform(8.0, 14.0)) * rng.uniform(12.0, 20.0)
+    medium_texture = ndi.gaussian_filter(raw_noise, sigma=rng.uniform(3.0, 5.0)) * rng.uniform(5.0, 10.0)
+    fine_grain = np_rng.standard_normal((128, 128), dtype=np.float32) * rng.uniform(2.5, 4.0)
+
+    total_noise = (coarse_shading + medium_texture + fine_grain)[:, :, np.newaxis]
+    arr += total_noise
+
+    # 3. Subtle camera lens vignette
+    radius = np.sqrt(x_grid**2 + y_grid**2)
+    vignette = 1.0 - (radius / 1.414) * rng.uniform(0.06, 0.15)
+    arr *= vignette[:, :, np.newaxis]
+
+    arr = np.clip(arr, 0, 255).astype(np.uint8)
+    return Image.fromarray(arr).filter(ImageFilter.SMOOTH)
 
 
 def generate_synthetic_fixtures(output_dir: Path, samples_per_class: int = 1000) -> None:
@@ -494,8 +533,8 @@ def generate_synthetic_fixtures(output_dir: Path, samples_per_class: int = 1000)
                         sx, sy = rng.randint(87, 108), wy + rng.randint(-8, 8)
                         draw.ellipse([sx - 2, sy - 2, sx + 2, sy + 2], fill=crimson_arterial)
 
-            # Apply subtle smoothing / camera noise
-            img = img.filter(ImageFilter.SMOOTH_MORE)
+            # Apply photographic skin lighting, texture, and organic grain
+            img = apply_photographic_texture(img, rng)
             img.save(img_path, format="JPEG", quality=95)
 
     logger.info(f"Generated {samples_per_class * 3} realistic dataset fixtures in {output_dir}")

@@ -45,9 +45,15 @@ def export_to_onnx(
         }
     )
 
-    # Check onnx model structure validity
-    onnx_model = onnx.load(str(output_path))
+    # Check onnx model structure validity and embed all weights into a single standalone file
+    onnx_model = onnx.load(str(output_path), load_external_data=True)
     onnx.checker.check_model(onnx_model)
+    onnx.save(onnx_model, str(output_path), save_as_external_data=False)
+
+    # Clean up any external data file if created by exporter
+    data_file = Path(str(output_path) + ".data")
+    if data_file.exists():
+        data_file.unlink()
 
     file_size_mb = output_path.stat().st_size / (1024 * 1024)
     logger.info(f"ONNX export successful: {output_path} ({file_size_mb:.2f} MB)")

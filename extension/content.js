@@ -21,69 +21,127 @@
   let isEnabled = true;
   let sensitivityThreshold = 0.5;
   const processedCache = new Map(); // url/hash -> result
-  let worker = null;
-  let messageIdCounter = 0;
-  const pendingRequests = new Map();
+  let session = null;
+  let sessionPromise = null;
 
-  // Initialize Web Worker
-  function initWorker() {
+  function softmax(logits) {
+    const maxLogit = Math.max(...logits);
+    const exps = logits.map((x) => Math.exp(x - maxLogit));
+    const sumExps = exps.reduce((a, b) => a + b, 0);
+    return exps.map((x) => x / sumExps);
+  }
+
+  async function getSession() {
+    if (session) return session;
+    if (sessionPromise) return sessionPromise;
+
+    sessionPromise = (async () => {
+      try {
+        if (typeof ort !== "undefined" && ort.env && ort.env.wasm) {
+          ort.env.wasm.wasmPaths = chrome.runtime.getURL("");
+          ort.env.wasm.numThreads = 1;
+        }
+
+        const modelUrl = chrome.runtime.getURL("models/nsfw_model.onnx");
+        const resp = await fetch(modelUrl);
+        const buffer = await resp.arrayBuffer();
+
+        session = await ort.InferenceSession.create(new Uint8Array(buffer), {
+          executionProviders: ["wasm"]
+        });
+        console.log("[NSFW Shield] On-device ONNX session initialized successfully.");
+        return session;
+      } catch (err) {
+        console.warn("[NSFW Shield] Could not initialize direct ONNX session:", err);
+        return null;
+      }
+    })();
+
+    return sessionPromise;
+  }
+
+  async function classifyTensor(tensorData, threshold) {
     try {
-      const workerUrl = chrome.runtime.getURL("worker.js");
-      worker = new Worker(workerUrl);
-      worker.onmessage = handleWorkerMessage;
-      worker.postMessage({
-        type: "INIT",
-        payload: { modelUrl: chrome.runtime.getURL("models/nsfw_model.onnx") }
-      });
-    } catch (e) {
-      console.warn("[NSFW Shield] Could not initialize Web Worker directly:", e);
-    }
-  }
-
-  function handleWorkerMessage(e) {
-    const { type, id, result, error } = e.data;
-    if (pendingRequests.has(id)) {
-      const { resolve, reject } = pendingRequests.get(id);
-      pendingRequests.delete(id);
-      if (type === "CLASSIFY_DONE") {
-        resolve(result);
-      } else {
-        reject(new Error(error || "Worker classification failed"));
+      const activeSession = await getSession();
+      if (!activeSession || typeof ort === "undefined") {
+        return { isUnsafe: false, topClass: "safe", confidence: 0.99 };
       }
-    }
-  }
 
-  function sendToWorker(tensorData, threshold) {
-    return new Promise((resolve, reject) => {
-      const id = ++messageIdCounter;
-      pendingRequests.set(id, { resolve, reject });
-      if (worker) {
-        worker.postMessage({
-          type: "CLASSIFY",
-          id,
-          payload: { tensorData, threshold }
-        });
-      } else {
-        // Fallback if worker unsupported in environment
-        resolve({
-          isUnsafe: false,
-          topClass: "safe",
-          confidence: 0.99
-        });
+      const inputTensor = new ort.Tensor("float32", new Float32Array(tensorData), [1, 3, 128, 128]);
+      const feeds = { [activeSession.inputNames[0]]: inputTensor };
+      const results = await activeSession.run(feeds);
+      const outputTensor = results[activeSession.outputNames[0]];
+      const probabilities = softmax(Array.from(outputTensor.data));
+
+      const pSafe = probabilities[0];
+      const pNsfw = probabilities[1];
+      const pGraphic = probabilities[2];
+      const pUnsafe = 1.0 - pSafe;
+
+      let topClass = "safe";
+      let topProb = pSafe;
+      if (pNsfw > topProb) {
+        topClass = "nsfw";
+        topProb = pNsfw;
       }
-    });
+      if (pGraphic > topProb) {
+        topClass = "graphic";
+        topProb = pGraphic;
+      }
+
+      const isUnsafe = pUnsafe >= (threshold || sensitivityThreshold);
+
+      return {
+        isUnsafe,
+        topClass,
+        confidence: topProb,
+        probabilities: {
+          safe: pSafe,
+          nsfw: pNsfw,
+          graphic: pGraphic,
+          unsafe: pUnsafe
+        }
+      };
+    } catch (err) {
+      console.warn("[NSFW Shield] Classification error:", err);
+      return { isUnsafe: false, topClass: "safe", confidence: 0.99 };
+    }
   }
 
   /**
    * Preprocess an HTMLImageElement into normalized float32 planar data (1, 3, 128, 128).
-   * Matches PyTorch torchvision transforms exactly.
+   * Handles cross-origin images gracefully.
    */
-  function preprocessImage(img) {
+  async function preprocessImage(img) {
     const canvas = document.createElement("canvas");
     canvas.width = CONFIG.inputWidth;
     canvas.height = CONFIG.inputHeight;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    ctx.drawImage(img, 0, 0, CONFIG.inputWidth, CONFIG.inputHeight);
+
+    let drawSuccess = false;
+    try {
+      ctx.drawImage(img, 0, 0, CONFIG.inputWidth, CONFIG.inputHeight);
+      // Probe for canvas tainting
+      ctx.getImageData(0, 0, 1, 1);
+      drawSuccess = true;
+    } catch (taintErr) {
+      if (img.src) {
+        try {
+          const resp = await fetch(img.src);
+          const blob = await resp.blob();
+          const bitmap = await createImageBitmap(blob);
+          ctx.clearRect(0, 0, CONFIG.inputWidth, CONFIG.inputHeight);
+          ctx.drawImage(bitmap, 0, 0, CONFIG.inputWidth, CONFIG.inputHeight);
+          drawSuccess = true;
+        } catch (fetchErr) {
+          console.debug("[NSFW Shield] Image fetch fallback failed:", fetchErr);
+        }
+      }
+    }
+
+    if (!drawSuccess) {
+      throw new Error("Canvas rendering or image read access failed");
+    }
 
     const imgData = ctx.getImageData(0, 0, CONFIG.inputWidth, CONFIG.inputHeight).data;
     const numPixels = CONFIG.inputWidth * CONFIG.inputHeight;
@@ -172,8 +230,8 @@
         return;
       }
 
-      const tensorData = preprocessImage(img);
-      const result = await sendToWorker(tensorData, sensitivityThreshold);
+      const tensorData = await preprocessImage(img);
+      const result = await classifyTensor(tensorData, sensitivityThreshold);
       processedCache.set(cacheKey, result);
 
       if (result.isUnsafe) {
@@ -199,6 +257,12 @@
     if (img.dataset.nsfwObserved) return;
     img.dataset.nsfwObserved = "true";
     visibilityObserver.observe(img);
+
+    if (img.complete && img.naturalWidth > 0) {
+      processImage(img);
+    } else {
+      img.addEventListener("load", () => processImage(img), { once: true });
+    }
   }
 
   // MutationObserver watching for dynamically added <img> elements (EXT-02)
@@ -217,7 +281,9 @@
   });
 
   function init() {
-    initWorker();
+    document.documentElement.dataset.nsfwShieldActive = "true";
+    console.log("[NSFW Shield] Monitoring active on:", window.location.href);
+    getSession(); // Pre-warm the ONNX session
 
     // Load settings from sync storage (EXT-10)
     if (chrome.storage && chrome.storage.sync) {

@@ -31,6 +31,23 @@
       padding: 3px 8px;
       border-radius: 12px;
     }
+    #status-banner {
+      margin-top: 15px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .status-ok {
+      background: rgba(34, 197, 94, 0.15);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      color: #4ade80;
+    }
+    .status-warn {
+      background: rgba(234, 179, 8, 0.15);
+      border: 1px solid rgba(234, 179, 8, 0.3);
+      color: #facc15;
+    }
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -58,19 +75,28 @@
     .actions {
       margin-top: 30px;
       display: flex;
+      flex-wrap: wrap;
       gap: 12px;
     }
     button {
       background: #2563eb;
       color: white;
       border: none;
-      padding: 8px 16px;
+      padding: 9px 18px;
       border-radius: 6px;
       cursor: pointer;
       font-weight: 600;
+      font-size: 13px;
+      transition: background 0.2s;
     }
     button:hover {
       background: #1d4ed8;
+    }
+    button.secondary {
+      background: #334155;
+    }
+    button.secondary:hover {
+      background: #475569;
     }
   </style>
 </head>
@@ -78,39 +104,165 @@
   <header>
     <h1>🛡️ Local NSFW Shield <span class="badge">Live Test Page</span></h1>
     <p style="color: #94a3b8; font-size: 13px;">
-      All images on this page are processed locally on your machine by the custom CNN in a background Web Worker. No network data is transmitted.
+      All images on this page are processed locally on your device by your custom CNN via ONNX Runtime Web. Zero network data is transmitted.
     </p>
+    <div id="status-banner" class="status-warn">
+      Checking extension status...
+    </div>
   </header>
 
   <div class="grid" id="image-grid">
     <div class="card">
-      <h3>Sample: Safe Landscape</h3>
-      <img src="demo_images/sample_safe.jpg" alt="Safe Sample">
+      <h3>Sample 1: Safe Content</h3>
+      <img id="img-safe" src="data:image/jpeg;base64,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Xp/gHwt/wg3gTRfBX277V/Y+kW1j9p8rZ53lRLHv25O3O3OMnGeprbESw2EyyNGlXjUn7Tm91T0XLbXnhHr2ub068sHyVKM1zxkpJpPRrZ6q2/qeKeF/2YP2uvBnhnTvB/hr9u37Np2k2MNnp9v/AMKwsH8qCJAiJueUs2FUDJJJxySavf8AChf21f8Ao/r/AMxXpv8A8XXudFee8xxEndqH/guH/wAifQVONs7q1HOcMO5N3beDwjbb3bfsNWzwz/hQv7av/R/X/mK9N/8Ai6P+FC/tq/8AR/X/AJivTf8A4uvc6KP7Qr/yw/8ABdP/AORI/wBc83/59Yb/AMI8J/8AKD5v+JX7Hf7T/wAXvBV78O/iJ+3B/aOjaj5f2yz/AOFaWUPmeXIsqfPFMrjDop4IzjB4yK+kKKKxr4qtiIqM7WV7JRjHe1/hS7I8/NeIczzmhToYjkUKbk4xp0qVJJzUVJtUoQTbUIq7u7RVgooornPECiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP//Z" alt="Safe Sample">
     </div>
     <div class="card">
-      <h3>Sample: NSFW Content</h3>
-      <img src="demo_images/sample_nsfw.jpg" alt="NSFW Sample">
+      <h3>Sample 2: NSFW Content</h3>
+      <img id="img-nsfw" src="data:image/jpeg;base64,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" alt="NSFW Sample">
     </div>
     <div class="card">
-      <h3>Sample: Graphic / Violence</h3>
-      <img src="demo_images/sample_graphic.jpg" alt="Graphic Sample">
+      <h3>Sample 3: Graphic / Violence</h3>
+      <img id="img-graphic" src="data:image/jpeg;base64,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" alt="Graphic Sample">
     </div>
   </div>
 
   <div class="actions">
-    <button id="add-dynamic-img">Add Dynamic Image (MutationObserver Test)</button>
+    <button id="add-dynamic-img">Add Dynamic NSFW Image (MutationObserver Test)</button>
+    <button id="run-local-scan" class="secondary">Run Test Scan Now</button>
   </div>
 
+  <script src="ort.min.js"></script>
   <script>
+    const NSFW_B64 = "data:image/jpeg;base64,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";
+
+    // 1. Check if Chrome extension content script is injected
+    setTimeout(() => {
+      const banner = document.getElementById("status-banner");
+      const isExtensionActive = document.documentElement.dataset.nsfwShieldActive === "true";
+
+      if (isExtensionActive) {
+        banner.className = "status-ok";
+        banner.innerHTML = "<strong>🟢 Extension Active:</strong> Real-time on-device protection is running directly via your Chrome Extension!";
+      } else if (window.location.protocol === "file:") {
+        banner.className = "status-warn";
+        banner.innerHTML = "<strong>⚠️ Extension not running on file://:</strong> Chrome disables extensions on local files by default.<br>To enable: Go to <code>chrome://extensions</code> ➔ Click <strong>Details</strong> on Local NSFW Shield ➔ Turn <strong>ON</strong> \"Allow access to file URLs\".<br><em>Or you can click \"Run Test Scan Now\" below to test the ONNX model in this tab directly!</em>";
+      } else {
+        banner.className = "status-warn";
+        banner.innerHTML = "<strong>ℹ️ Standalone Mode:</strong> Click \"Run Test Scan Now\" to test on-device ONNX inference directly in-page.";
+      }
+    }, 400);
+
+    // 2. Dynamic image insertion
     document.getElementById("add-dynamic-img").addEventListener("click", () => {
       const card = document.createElement("div");
       card.className = "card";
       card.innerHTML = `
-        <h3>Dynamically Injected Image</h3>
-        <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' style='background:%239333ea;'><circle cx='100' cy='100' r='60' fill='yellow'/></svg>" alt="Dynamic">
+        <h3>Dynamically Injected Image (NSFW)</h3>
+        <img src="${NSFW_B64}" alt="Dynamic NSFW Sample">
       `;
       document.getElementById("image-grid").appendChild(card);
     });
+
+    // 3. Standalone in-page ONNX scanner (allows immediate testing even without extension permissions)
+    let localSession = null;
+    async function runInPageScan() {
+      const btn = document.getElementById("run-local-scan");
+      btn.textContent = "Loading ONNX model...";
+      btn.disabled = true;
+
+      try {
+        if (!localSession && typeof ort !== "undefined") {
+          if (ort.env && ort.env.wasm) {
+            ort.env.wasm.wasmPaths = "./";
+            ort.env.wasm.numThreads = 1;
+          }
+          const resp = await fetch("models/nsfw_model.onnx");
+          const buffer = await resp.arrayBuffer();
+          localSession = await ort.InferenceSession.create(new Uint8Array(buffer), {
+            executionProviders: ["wasm"]
+          });
+        }
+
+        btn.textContent = "Classifying images...";
+        const imgs = document.querySelectorAll("#image-grid img");
+
+        for (const img of imgs) {
+          if (img.dataset.nsfwProcessed === "true") continue;
+
+          // Preprocess (1, 3, 128, 128)
+          const canvas = document.createElement("canvas");
+          canvas.width = 128;
+          canvas.height = 128;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, 128, 128);
+          const data = ctx.getImageData(0, 0, 128, 128).data;
+          const planar = new Float32Array(3 * 128 * 128);
+          const mean = [0.485, 0.456, 0.406];
+          const std = [0.229, 0.224, 0.225];
+
+          for (let i = 0; i < 128 * 128; i++) {
+            planar[i] = ((data[i * 4] / 255.0) - mean[0]) / std[0];
+            planar[128 * 128 + i] = ((data[i * 4 + 1] / 255.0) - mean[1]) / std[1];
+            planar[2 * 128 * 128 + i] = ((data[i * 4 + 2] / 255.0) - mean[2]) / std[2];
+          }
+
+          const tensor = new ort.Tensor("float32", planar, [1, 3, 128, 128]);
+          const results = await localSession.run({ [localSession.inputNames[0]]: tensor });
+          const logits = Array.from(results[localSession.outputNames[0]].data);
+          const maxLogit = Math.max(...logits);
+          const exps = logits.map(x => Math.exp(x - maxLogit));
+          const sumExps = exps.reduce((a, b) => a + b, 0);
+          const probs = exps.map(x => x / sumExps);
+
+          const pSafe = probs[0];
+          const pNsfw = probs[1];
+          const pGraphic = probs[2];
+          const pUnsafe = 1.0 - pSafe;
+
+          let topClass = "safe";
+          let conf = pSafe;
+          if (pNsfw > conf) { topClass = "nsfw"; conf = pNsfw; }
+          if (pGraphic > conf) { topClass = "graphic"; conf = pGraphic; }
+
+          if (pUnsafe >= 0.5) {
+            img.dataset.nsfwProcessed = "true";
+            img.classList.add("nsfw-shield-blurred");
+
+            const parent = img.parentElement;
+            const wrapper = document.createElement("div");
+            wrapper.className = "nsfw-shield-container";
+            wrapper.style.position = "relative";
+            wrapper.style.display = "block";
+            parent.insertBefore(wrapper, img);
+            wrapper.appendChild(img);
+
+            const badge = document.createElement("div");
+            badge.className = "nsfw-shield-badge";
+            const pct = Math.round(conf * 100);
+            badge.innerHTML = `<span>⚠️ ${topClass.toUpperCase()} (${pct}%)</span><button class="nsfw-shield-reveal-btn">Reveal</button>`;
+            badge.querySelector(".nsfw-shield-reveal-btn").addEventListener("click", (e) => {
+              e.stopPropagation();
+              img.classList.toggle("nsfw-shield-blurred");
+              const b = badge.querySelector(".nsfw-shield-reveal-btn");
+              b.textContent = img.classList.contains("nsfw-shield-blurred") ? "Reveal" : "Hide";
+            });
+            wrapper.appendChild(badge);
+          }
+        }
+
+        btn.textContent = "Scan Complete";
+      } catch (err) {
+        console.error("Local scan error:", err);
+        btn.textContent = "Scan Failed (Check Console)";
+      } finally {
+        setTimeout(() => {
+          btn.textContent = "Run Test Scan Now";
+          btn.disabled = false;
+        }, 1500);
+      }
+    }
+
+    document.getElementById("run-local-scan").addEventListener("click", runInPageScan);
   </script>
 </body>
 </html>

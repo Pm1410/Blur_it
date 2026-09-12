@@ -1,0 +1,86 @@
+/* styles.css */
+#cyhi-vibe-button {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background: linear-gradient(135deg, #6200ea, #b388ff);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  padding: 15px 25px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  z-index: 2147483647; 
+  box-shadow: 0 4px 15px rgba(98, 0, 234, 0.4);
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+#cyhi-vibe-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(98, 0, 234, 0.6);
+}
+
+#cyhi-tooltip {
+  position: absolute;
+  background: #1e1e24; /* sleek dark mode */
+  border: 1px solid #3f3f4e;
+  border-left: 4px solid #6200ea; /* purple AI accent */
+  border-radius: 10px;
+  padding: 18px;
+  z-index: 2147483647;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  width: 340px;
+  display: none;
+  color: #ffffff;
+}
+
+.cyhi-header {
+  color: #b388ff; /* light purple */
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.cyhi-suggestion {
+  font-size: 14px;
+  color: #e0e0e0;
+  margin-bottom: 16px;
+  background: #2a2a35;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #3f3f4e;
+  line-height: 1.5;
+}
+
+.cyhi-btn {
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  margin-right: 10px;
+  transition: all 0.2s ease;
+}
+
+.cyhi-accept { 
+  background: #6200ea;
+  color: white;
+}
+.cyhi-accept:hover {
+  background: #7c4dff;
+  box-shadow: 0 0 10px rgba(98, 0, 234, 0.4);
+}
+
+.cyhi-ignore { 
+  background: transparent;
+  color: #9e9e9e;
+  border: 1px solid #555;
+}
+.cyhi-ignore:hover {
+  background: #333;
+  color: white;
+}

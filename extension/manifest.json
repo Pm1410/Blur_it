@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "CYHI Toxicity Filter",
+  "version": "1.0",
+  "description": "Checks drafts before they go out and offers polite rephrases.",
+  "permissions": ["scripting"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["styles.css"]
+    }
+  ]
+}

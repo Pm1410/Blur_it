@@ -11,8 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy your actual Python code into the cloud server
 COPY server.py .
 
-# Hugging Face Spaces requires apps to run on port 7860
-EXPOSE 7860
+# Google Cloud Run expects apps to listen on port 8080
+EXPOSE 8080
 
-# Start the FastAPI server on the correct port
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "7860"]
+# Start the FastAPI server on port 8080
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8080"]

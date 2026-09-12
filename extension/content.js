@@ -238,11 +238,17 @@ function normalizeLeetspeak(text) {
     return norm;
 }
 
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escapes all special Regex characters
+}
+
 function makeSafeRegex(word) {
+    let escaped = escapeRegExp(word);
+    // We check the original word to see if it's ascii for word boundaries
     if (/^[a-zA-Z0-9\s]+$/.test(word)) {
-        return new RegExp(`\\b${word}\\b`, 'gi');
+        return new RegExp(`\\b${escaped}\\b`, 'gi');
     } else {
-        return new RegExp(word, 'gi');
+        return new RegExp(escaped, 'gi');
     }
 }
 

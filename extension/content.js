@@ -22,9 +22,7 @@ document.addEventListener('focusin', (e) => {
     }
 });
 
-// --- SERVERLESS AI ENGINE ---
-// Paste your Hugging Face token here inside the quotes!
-const HF_TOKEN = "Bearer hf_PUT_YOUR_TOKEN_HERE";
+// --- 100% OFFLINE EDGE COMPUTE ENGINE ---
 
 const filler_swear_words = [
     "mc", "bc", "b.c.", "m.c.", "mkc", "bsdk", "bkl", "bck", "madarchod", "behenchod", "bhenchod", 
@@ -39,7 +37,6 @@ const adjective_swear_words = [
     "namak haram", "haraamzada", "bewakoof", "gadha", "ullu", "ullu ke patthe", "dimaag kharab", 
     "pagal", "dhed shana", "chaprasi", "andhe", "bakwas", "chup kar", "aukaat", "aukat", "nikal", 
     "chal nikal", "bhad me ja", "mar ja", "jahil", "nirlajj", 
-    "fuck", "fucking", "shit", "bitch", "asshole", "ass", "moron", "idiot",
     "kutte ki zat", "कुत्ते की ज़ात", "suar ki zat", "सूअर की ज़ात", "सूअर की औलाद",
     "gadhe ki aulad", "गधे की औलाद", "gadhe ki zat", "गधे की ज़ात", "bandar ki aulad", "बंदर की औलाद", 
     "bandar ki zat", "बंदर की ज़ात", "bhains ki aulad", "भैंस की औलाद", "bhains ki zat", "भैंस की ज़ात", 
@@ -72,7 +69,40 @@ const adjective_swear_words = [
     "chutmar", "चूतमार", "chutiyapa", "चूतियापा"
 ];
 const hinglish_swear_words = filler_swear_words.concat(adjective_swear_words);
-const euphemistic_threats = ["send you to heaven", "hunt you down", "will end you", "dig a grave", "put you in a body bag"];
+hinglish_swear_words.sort((a, b) => b.length - a.length);
+
+const englishToxicWords = [
+  "ass", "asshole", "ass clown", "asshat", "asswipe", "badass", "bastard", "bitch", "bitches", "bitching", 
+  "bitchy", "blowjob", "bollocks", "boner", "bullshit", "clit", "cock", "cocksucker", "crap", "cunt", 
+  "cunts", "dick", "dickhead", "dildo", "dipshit", "douche", "douchebag", "dumbass", "fag", "faggot", 
+  "fuck", "fucker", "fucking", "fuckup", "fucked", "fucks", "goddamn", "horseshit", "jackass", "jerkoff", 
+  "motherfucker", "motherfucking", "nigga", "nigger", "piss", "pissed", "pissing", "prick", "pussy", 
+  "pussies", "shit", "shitty", "shithole", "shithead", "slut", "sluts", "slutty", "son of a bitch", 
+  "tit", "tits", "twat", "wanker", "whore", "whores", "clown", "creep", "craphead", "cretin", "degenerate", 
+  "dirtbag", "dolt", "dope", "drop dead", "dunce", "fatass", "freak", "garbage", "go to hell", "halfwit", 
+  "idiot", "idiotic", "ignorant", "imbecile", "incompetent", "kill yourself", "kys", "loser", "lowlife", 
+  "lunatic", "moron", "moronic", "muppet", "nerd", "nincompoop", "noob", "nutjob", "parasite", "pathetic", 
+  "psycho", "rat", "retard", "retarded", "rubbish", "scumbag", "scum", "shut up", "simp", "skank", 
+  "slimeball", "sociopath", "trash", "troll", "ugly", "useless", "vile", "waste of breath", 
+  "waste of space", "worthless"
+];
+
+const englishReplacementMap = {
+  "asshole": "difficult person", "ass": "attitude", "bastard": "troublemaker", "bitch": "complain", 
+  "bitches": "critics", "bitching": "grumbling", "bullshit": "nonsense", "crap": "rubbish", 
+  "cunt": "unpleasant person", "dickhead": "fool", "dick": "jerk", "dumbass": "unwise person", 
+  "fucking": "extremely", "fucked": "compromised", "fuck": "mess up", "goddamn": "frustrating", 
+  "horseshit": "inaccuracy", "idiot": "individual", "idiotic": "ill-advised", "jackass": "mischief-maker", 
+  "kill yourself": "take a step back", "kys": "cool down", "loser": "underdog", "moron": "layman", 
+  "moronic": "misguided", "motherfucker": "adversary", "pathetic": "underwhelming", "pissed": "agitated", 
+  "retard": "person with differences", "retarded": "illogical", "scumbag": "unreliable person", 
+  "shit": "mess", "shitty": "poor quality", "shut up": "please pause", "slut": "individual", 
+  "stfu": "please stop", "trash": "subpar", "useless": "ineffective", "whore": "individual", 
+  "worthless": "unproductive"
+};
+
+const allEnglishToxics = [...englishToxicWords];
+allEnglishToxics.sort((a, b) => b.length - a.length);
 
 function normalizeLeetspeak(text) {
     const map = {'0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '@': 'a', '$': 's'};
@@ -86,6 +116,14 @@ function normalizeLeetspeak(text) {
     return norm;
 }
 
+function makeSafeRegex(word) {
+    if (/^[a-zA-Z0-9\s]+$/.test(word)) {
+        return new RegExp(`\\b${word}\\b`, 'gi');
+    } else {
+        return new RegExp(word, 'gi');
+    }
+}
+
 vibeButton.addEventListener('click', async () => {
     if (!activeInputField) {
         alert("CYHI: Please click inside a text box first so I know what to vibe check!");
@@ -95,83 +133,49 @@ vibeButton.addEventListener('click', async () => {
     let text = activeInputField.value || activeInputField.innerText;
     if (!text || text.trim().length === 0) return;
     
-    if (HF_TOKEN.includes("PUT_YOUR_TOKEN_HERE")) {
-        alert("CYHI: You forgot to paste your Hugging Face token in the content.js file!");
-        return;
+    let normalized = normalizeLeetspeak(text);
+    let isToxic = false;
+    let politeVersion = normalized;
+    let lowerNorm = normalized.toLowerCase();
+    
+    // 1. Check English Replacement Map
+    for (const [toxic, polite] of Object.entries(englishReplacementMap)) {
+        if (lowerNorm.includes(toxic.toLowerCase())) {
+            isToxic = true;
+            politeVersion = politeVersion.replace(makeSafeRegex(toxic), polite);
+        }
     }
     
-    vibeButton.innerText = 'Checking...';
+    // 2. Check remaining English words (censor if no exact replacement exists)
+    for (let word of allEnglishToxics) {
+        if (!englishReplacementMap[word]) {
+            if (lowerNorm.includes(word.toLowerCase())) {
+                isToxic = true;
+                politeVersion = politeVersion.replace(makeSafeRegex(word), '***');
+            }
+        }
+    }
     
-    let normalized = normalizeLeetspeak(text);
-    let isHinglishToxic = false;
-    let isEnglishToxic = false;
-    let politeVersion = normalized;
-    
-    // Check phrases and single words
-    let lowerNorm = normalized.toLowerCase();
+    // 3. Check Hinglish / Hindi
     for (let word of hinglish_swear_words) {
         if (lowerNorm.includes(word.toLowerCase())) {
-            isHinglishToxic = true;
-            let regex = new RegExp(word, 'gi');
+            isToxic = true;
             if (filler_swear_words.includes(word)) {
-                politeVersion = politeVersion.replace(regex, '');
+                politeVersion = politeVersion.replace(makeSafeRegex(word), '');
             } else {
-                politeVersion = politeVersion.replace(regex, '***');
+                politeVersion = politeVersion.replace(makeSafeRegex(word), '***');
             }
         }
     }
     
+    // Clean up spaces
     politeVersion = politeVersion.replace(/\s+/g, ' ').trim();
     
-    if (!isHinglishToxic) {
-        for (let threat of euphemistic_threats) {
-            if (lowerNorm.includes(threat)) {
-                isEnglishToxic = true; break;
-            }
-        }
-        
-        if (!isEnglishToxic) {
-            try {
-                let res = await fetch("https://api-inference.huggingface.co/models/martin-ha/toxic-comment-model", {
-                    method: "POST", headers: {"Authorization": HF_TOKEN, "Content-Type": "application/json"},
-                    body: JSON.stringify({inputs: normalized})
-                });
-                let data = await res.json();
-                if (data && data.length > 0 && data[0].length > 0) {
-                    let toxicScore = data[0].find(d => d.label === 'toxic');
-                    if (toxicScore && toxicScore.score > 0.5) isEnglishToxic = true;
-                }
-            } catch(e) {}
-        }
-    }
-    
-    if (isHinglishToxic) {
+    if (isToxic) {
         showPopup(politeVersion, activeInputField);
-    } else if (isEnglishToxic) {
-        try {
-            let res = await fetch("https://api-inference.huggingface.co/models/s-nlp/bart-base-detox", {
-                method: "POST", headers: {"Authorization": HF_TOKEN, "Content-Type": "application/json"},
-                body: JSON.stringify({inputs: normalized})
-            });
-            let data = await res.json();
-            if (data && data.length > 0 && data[0].generated_text) {
-                let rephrased = data[0].generated_text;
-                if (rephrased.toLowerCase() === normalized.toLowerCase()) {
-                    showPopup("🤡💩 [CENSORED BY VIBE CHECK] 💩🤡", activeInputField);
-                } else {
-                    showPopup(rephrased, activeInputField);
-                }
-            } else {
-                showPopup("🤡💩 [CENSORED BY VIBE CHECK] 💩🤡", activeInputField);
-            }
-        } catch(e) {
-            showPopup("🤡💩 [CENSORED BY VIBE CHECK] 💩🤡", activeInputField);
-        }
     } else {
         alert("✅ Passed the Vibe Check! Your text is safe.");
     }
-    
-    vibeButton.innerText = '✨ Vibe Check';
 });
 
 function showPopup(suggestion, targetElement) {

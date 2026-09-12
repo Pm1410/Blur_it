@@ -1,0 +1,13 @@
+{
+    "manifest_version": 3,
+    "name": "CYHI Scanner (Objective 1)",
+    "version": "1.0",
+    "description": "Scans feeds for toxicity, blurs elements > 80, and features a Valorant-style threat HUD.",
+    "content_scripts": [
+      {
+        "matches": ["<all_urls>"],
+        "js": ["scanner.js"],
+        "css": ["styles.css"]
+      }
+    ]
+}

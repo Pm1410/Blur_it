@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Local NSFW Shield — Hackathon Interactive Demo</title>
+  <link rel="stylesheet" href="overlay.css">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #090d16;
+      color: #f1f5f9;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    header {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+    }
+    h1 {
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .badge {
+      background: #3b82f6;
+      color: white;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 12px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .card h3 {
+      font-size: 14px;
+      color: #cbd5e1;
+    }
+    img {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+    .actions {
+      margin-top: 30px;
+      display: flex;
+      gap: 12px;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover {
+      background: #1d4ed8;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🛡️ Local NSFW Shield <span class="badge">Live Test Page</span></h1>
+    <p style="color: #94a3b8; font-size: 13px;">
+      All images on this page are processed locally on your machine by the custom CNN in a background Web Worker. No network data is transmitted.
+    </p>
+  </header>
+
+  <div class="grid" id="image-grid">
+    <div class="card">
+      <h3>Class: Safe Sample 1</h3>
+      <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' style='background:%23059669;'><circle cx='100' cy='100' r='50' fill='white'/></svg>" alt="Safe circle">
+    </div>
+    <div class="card">
+      <h3>Class: Safe Sample 2</h3>
+      <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' style='background:%232563eb;'><rect x='40' y='40' width='120' height='120' fill='white'/></svg>" alt="Safe square">
+    </div>
+  </div>
+
+  <div class="actions">
+    <button id="add-dynamic-img">Add Dynamic Image (MutationObserver Test)</button>
+  </div>
+
+  <script>
+    document.getElementById("add-dynamic-img").addEventListener("click", () => {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <h3>Dynamically Injected Image</h3>
+        <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' style='background:%239333ea;'><circle cx='100' cy='100' r='60' fill='yellow'/></svg>" alt="Dynamic">
+      `;
+      document.getElementById("image-grid").appendChild(card);
+    });
+  </script>
+</body>
+</html>

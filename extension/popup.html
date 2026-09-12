@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Local NSFW Shield</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-card">
+    <header class="header">
+      <div class="brand">
+        <span class="shield-icon">🛡️</span>
+        <h1>Local NSFW Shield</h1>
+      </div>
+      <span class="badge">On-Device CNN</span>
+    </header>
+
+    <div class="status-section">
+      <label class="toggle-switch">
+        <input type="checkbox" id="enable-toggle" checked>
+        <span class="slider round"></span>
+      </label>
+      <div class="status-label">
+        <span class="status-title" id="status-text">Protection Active</span>
+        <span class="status-sub">Zero data leaves your browser</span>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="control-group">
+      <div class="control-header">
+        <label for="threshold-slider">Sensitivity Threshold</label>
+        <span class="value-display" id="threshold-val">0.50</span>
+      </div>
+      <input type="range" id="threshold-slider" min="0.10" max="0.90" step="0.05" value="0.50">
+      <div class="range-labels">
+        <span>Sensitive (0.1)</span>
+        <span>Standard (0.5)</span>
+        <span>Strict (0.9)</span>
+      </div>
+    </div>
+
+    <div class="stats-box">
+      <div class="stat-item">
+        <span class="stat-num" id="stat-model">1.6 MB</span>
+        <span class="stat-lbl">CNN Model Size</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num" id="stat-res">128×128</span>
+        <span class="stat-lbl">Inference Res</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num" id="stat-privacy">100%</span>
+        <span class="stat-lbl">Local Privacy</span>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <span>Built for Hackathon • Custom CNN from Scratch</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

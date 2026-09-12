@@ -18,6 +18,8 @@ checkpoints/
 *.pt
 *.pth
 *.onnx
+!extension/models/*.onnx
+!extension/*.wasm
 
 # Build artifacts
 build/

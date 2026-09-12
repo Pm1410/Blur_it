@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Local NSFW Shield — On-Device Image Classifier",
+  "version": "1.0.0",
+  "description": "On-device, privacy-preserving CNN classifier that detects and blurs NSFW and Graphic images directly in the browser.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["overlay.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Local NSFW Shield"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "worker.js",
+        "ort.min.js",
+        "*.wasm",
+        "models/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

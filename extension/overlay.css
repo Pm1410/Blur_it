@@ -1,0 +1,57 @@
+/**
+ * Local NSFW Shield - DOM Overlay & Blur Styles
+ */
+
+.nsfw-shield-blurred {
+  filter: blur(26px) brightness(0.8) !important;
+  transition: filter 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  user-select: none !important;
+  pointer-events: none !important;
+}
+
+.nsfw-shield-container {
+  position: relative !important;
+  overflow: hidden !important;
+  display: inline-block !important;
+  border-radius: 4px !important;
+}
+
+.nsfw-shield-badge {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  background: rgba(18, 18, 22, 0.88) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #f1f5f9 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 6px 12px !important;
+  border-radius: 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+  z-index: 2147483640 !important;
+  pointer-events: auto !important;
+  white-space: nowrap !important;
+}
+
+.nsfw-shield-reveal-btn {
+  background: #3b82f6 !important;
+  color: #ffffff !important;
+  border: none !important;
+  padding: 3px 8px !important;
+  border-radius: 12px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: background 0.15s ease !important;
+}
+
+.nsfw-shield-reveal-btn:hover {
+  background: #2563eb !important;
+}

@@ -13,7 +13,7 @@
   };
 
   let isEnabled = true;
-  let sensitivityThreshold = 0.35;
+  let sensitivityThreshold = 0.30;
   const processedCache = new Map(); // url -> result
 
   function resolveUrl(rawUrl) {

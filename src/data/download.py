@@ -159,9 +159,10 @@ def generate_synthetic_fixtures(output_dir: Path, samples_per_class: int = 1000)
                 # to prevent the CNN from learning the false shortcut that "any skin tone = NSFW".
                 safe_type = rng.choice([
                     "face_portrait", "face_portrait", "face_portrait", "face_portrait",
-                    "face_portrait", "face_portrait", "face_portrait",
+                    "face_portrait", "face_portrait",
                     "clothed_person", "clothed_person", "clothed_person",
-                    "clean_hands_objects",
+                    "clean_hands_objects", "clean_hands_objects",
+                    "red_objects_still_life",
                     "landscape", "urban_scene"
                 ])
 
@@ -279,6 +280,33 @@ def generate_synthetic_fixtures(output_dir: Path, samples_per_class: int = 1000)
                     draw.rectangle([45, 35, 105, 100], fill=(30, 35, 45))
                     draw.rectangle([48, 38, 102, 97], fill=(59, 130, 246))
 
+                elif safe_type == "red_objects_still_life":
+                    # Red objects (apples, roses, red car, red book) to prevent color-shortcut false positives
+                    draw.rectangle([0, 0, 128, 128], fill=(rng.randint(220, 245), rng.randint(220, 245), rng.randint(220, 245)))
+                    item_type = rng.choice(["apple", "rose", "red_book", "red_mug"])
+                    if item_type == "apple":
+                        # Red apple with green leaf
+                        draw.ellipse([34, 38, 94, 98], fill=(220, 38, 38))
+                        draw.ellipse([45, 45, 83, 90], fill=(239, 68, 68))
+                        draw.line([(64, 38), (64, 25)], fill=(120, 53, 15), width=3)
+                        draw.ellipse([64, 20, 82, 32], fill=(34, 197, 94))
+                    elif item_type == "red_mug":
+                        # Red ceramic coffee mug
+                        draw.rectangle([35, 40, 85, 98], fill=(220, 38, 38))
+                        draw.arc([75, 48, 105, 90], 270, 90, fill=(220, 38, 38), width=5)
+                    elif item_type == "red_book":
+                        # Red hardcover book
+                        draw.rectangle([25, 30, 103, 98], fill=(185, 28, 28))
+                        draw.rectangle([30, 35, 98, 93], fill=(245, 245, 240))
+                    else:
+                        # Red flower / rose
+                        for petal in range(8):
+                            angle = petal * (3.14159 / 4)
+                            px = int(64 + math.cos(angle) * 22)
+                            py = int(64 + math.sin(angle) * 22)
+                            draw.ellipse([px - 14, py - 14, px + 14, py + 14], fill=(225, 29, 72))
+                        draw.ellipse([54, 54, 74, 74], fill=(159, 18, 57))
+
                 elif safe_type == "landscape":
                     # Sky & hills
                     draw.rectangle([0, 0, 128, 60], fill=(rng.randint(70, 140), rng.randint(130, 200), rng.randint(210, 255)))
@@ -307,61 +335,164 @@ def generate_synthetic_fixtures(output_dir: Path, samples_per_class: int = 1000)
                         draw.ellipse([px, py, px + rng.randint(10, 25), py + rng.randint(10, 25)], fill=(rng.randint(30, 70), rng.randint(20, 50), rng.randint(10, 30)))
 
             else:  # graphic
-                # Realistic skin-trauma, abrasions, cuts, lacerations, and hematomas directly on human skin
+                # Comprehensive, realistic trauma & injury patterns directly on skin
                 base_skin = rng.choice(FITZPATRICK_SKIN_TONES)
                 r = min(255, max(0, base_skin[0] + rng.randint(-15, 15)))
                 g = min(255, max(0, base_skin[1] + rng.randint(-15, 15)))
                 b = min(255, max(0, base_skin[2] + rng.randint(-15, 15)))
                 skin_bg = (r, g, b)
 
-                # Draw skin surface or limb
+                # Draw base skin surface
                 draw.rectangle([0, 0, 128, 128], fill=skin_bg)
 
-                # Heavy arterial red, raw pink/red flesh, crimson, and clotted dark red
-                raw_flesh = (min(255, r + 45), max(0, g - 65), max(0, b - 55))
-                crimson = (rng.randint(180, 235), rng.randint(5, 30), rng.randint(5, 30))
-                dark_clot = (rng.randint(90, 135), rng.randint(0, 20), rng.randint(0, 20))
-                bruise_edge = (max(0, r - 35), max(0, g - 50), min(255, b + 25))
+                # Color definitions for trauma
+                crimson_arterial = (rng.randint(190, 240), rng.randint(0, 25), rng.randint(0, 25))
+                raw_flesh = (min(255, r + 55), max(0, g - 60), max(0, b - 50))
+                dark_coagulated = (rng.randint(65, 115), rng.randint(0, 18), rng.randint(0, 18))
+                bruise_violet = (rng.randint(60, 95), rng.randint(25, 45), rng.randint(65, 105))
+                bruise_yellow_green = (min(255, r + 10), min(255, g + 20), max(0, b - 35))
+                suture_thread = (rng.randint(15, 30), rng.randint(15, 30), rng.randint(20, 35))
+                inflamed_halo = (min(255, r + 40), max(0, g - 40), max(0, b - 35))
 
-                wound_style = rng.choice(["abrasion", "laceration", "puncture_wound"])
+                wound_style = rng.choice([
+                    "abrasion_road_rash",
+                    "abrasion_road_rash",
+                    "surgical_stitches",
+                    "surgical_stitches",
+                    "coagulated_scab",
+                    "laceration_cut",
+                    "laceration_cut",
+                    "blood_drips_splatter",
+                    "severe_hematoma",
+                    "bloody_bandage_gauze",
+                    "limb_with_wound"
+                ])
 
-                if wound_style == "abrasion":
-                    # Central raw abrasion scrape (like hand abrasion / bicycle injury)
-                    wx, wy = rng.randint(45, 80), rng.randint(45, 80)
-                    rad_x, rad_y = rng.randint(22, 38), rng.randint(18, 32)
-                    # Bruised halo
-                    draw.ellipse([wx - rad_x - 6, wy - rad_y - 6, wx + rad_x + 6, wy + rad_y + 6], fill=bruise_edge)
-                    # Raw scraped pink/red bed
+                # Random center position across image
+                wx = rng.randint(30, 98)
+                wy = rng.randint(30, 98)
+
+                if wound_style == "abrasion_road_rash":
+                    # Road rash / scraped knee / bicycle graze
+                    rad_x = rng.randint(20, 42)
+                    rad_y = rng.randint(16, 36)
+                    # Inflamed peripheral halo
+                    draw.ellipse([wx - rad_x - 8, wy - rad_y - 8, wx + rad_x + 8, wy + rad_y + 8], fill=inflamed_halo)
+                    # Raw exposed dermis
                     draw.ellipse([wx - rad_x, wy - rad_y, wx + rad_x, wy + rad_y], fill=raw_flesh)
-                    # Crimson bleeding points
-                    for _ in range(8):
-                        sx = wx + rng.randint(-rad_x + 4, rad_x - 4)
-                        sy = wy + rng.randint(-rad_y + 4, rad_y - 4)
-                        sr = rng.randint(3, 8)
-                        draw.ellipse([sx - sr, sy - sr, sx + sr, sy + sr], fill=crimson)
+                    # Multi-punctate bleeding dots & scrapes
+                    for _ in range(rng.randint(12, 24)):
+                        sx = wx + rng.randint(-rad_x + 3, rad_x - 3)
+                        sy = wy + rng.randint(-rad_y + 3, rad_y - 3)
+                        sr = rng.randint(2, 6)
+                        draw.ellipse([sx - sr, sy - sr, sx + sr, sy + sr], fill=crimson_arterial)
+                    # Gritty gravel/scab specks
+                    for _ in range(6):
+                        gx = wx + rng.randint(-rad_x + 4, rad_x - 4)
+                        gy = wy + rng.randint(-rad_y + 4, rad_y - 4)
+                        draw.rectangle([gx, gy, gx + 2, gy + 2], fill=dark_coagulated)
 
-                elif wound_style == "laceration":
-                    # Open cut / laceration slit with dark clot line
-                    wx, wy = rng.randint(35, 90), rng.randint(35, 90)
-                    draw.ellipse([wx - 18, wy - 18, wx + 18, wy + 18], fill=bruise_edge)
-                    # Cut lines
-                    for _ in range(3):
-                        x_start = wx + rng.randint(-15, 15)
-                        y_start = wy + rng.randint(-15, 15)
-                        curr_x, curr_y = x_start, y_start
-                        for _ in range(5):
-                            next_x = curr_x + rng.randint(-16, 16)
-                            next_y = curr_y + rng.randint(-16, 16)
-                            draw.line([(curr_x, curr_y), (next_x, next_y)], fill=crimson, width=rng.randint(3, 6))
-                            draw.line([(curr_x, curr_y), (next_x, next_y)], fill=dark_clot, width=2)
-                            curr_x, curr_y = next_x, next_y
+                elif wound_style == "surgical_stitches":
+                    # Surgical incision line with black cross-thread sutures
+                    x_start = wx - rng.randint(25, 45)
+                    y_start = wy - rng.randint(15, 30)
+                    x_end = wx + rng.randint(25, 45)
+                    y_end = wy + rng.randint(15, 30)
+
+                    # Red swollen incision zone
+                    draw.line([(x_start, y_start), (x_end, y_end)], fill=inflamed_halo, width=10)
+                    # Dark red incision cut
+                    draw.line([(x_start, y_start), (x_end, y_end)], fill=crimson_arterial, width=4)
+                    draw.line([(x_start, y_start), (x_end, y_end)], fill=dark_coagulated, width=2)
+
+                    # Cross sutures along the incision line
+                    num_stitches = rng.randint(5, 9)
+                    for s in range(num_stitches):
+                        t = (s + 0.5) / num_stitches
+                        sx = int(x_start + t * (x_end - x_start))
+                        sy = int(y_start + t * (y_end - y_start))
+                        # Perpendicular stitch line
+                        dx = -(y_end - y_start) * 0.18
+                        dy = (x_end - x_start) * 0.18
+                        draw.line([(sx - dx, sy - dy), (sx + dx, sy + dy)], fill=suture_thread, width=2)
+                        # Suture puncture knots
+                        draw.ellipse([sx - dx - 2, sy - dy - 2, sx - dx + 2, sy - dy + 2], fill=dark_coagulated)
+                        draw.ellipse([sx + dx - 2, sy + dy - 2, sx + dx + 2, sy + dy + 2], fill=dark_coagulated)
+
+                elif wound_style == "coagulated_scab":
+                    # Crusty, dark brown/black clotted scab with irregular margin
+                    rad = rng.randint(18, 35)
+                    draw.ellipse([wx - rad - 6, wy - rad - 6, wx + rad + 6, wy + rad + 6], fill=inflamed_halo)
+                    draw.ellipse([wx - rad, wy - rad, wx + rad, wy + rad], fill=crimson_arterial)
+                    for _ in range(12):
+                        ox = wx + rng.randint(-rad + 4, rad - 4)
+                        oy = wy + rng.randint(-rad + 4, rad - 4)
+                        orad = rng.randint(6, 14)
+                        draw.ellipse([ox - orad, oy - orad, ox + orad, oy + orad], fill=dark_coagulated)
+
+                elif wound_style == "laceration_cut":
+                    # Deep gaping cut with jagged edges and blood trickle
+                    draw.ellipse([wx - 22, wy - 22, wx + 22, wy + 22], fill=inflamed_halo)
+                    x_curr, y_curr = wx - rng.randint(20, 35), wy - rng.randint(15, 25)
+                    points = [(x_curr, y_curr)]
+                    for _ in range(6):
+                        x_curr += rng.randint(6, 14)
+                        y_curr += rng.randint(4, 12)
+                        points.append((x_curr, y_curr))
+                    # Draw thick cut
+                    for i in range(len(points) - 1):
+                        draw.line([points[i], points[i+1]], fill=crimson_arterial, width=rng.randint(4, 7))
+                        draw.line([points[i], points[i+1]], fill=dark_coagulated, width=2)
+                    # Blood drip trailing downwards
+                    drip_x = points[-1][0]
+                    drip_y = points[-1][1]
+                    for _ in range(rng.randint(15, 35)):
+                        drip_y += rng.randint(1, 3)
+                        drip_x += rng.randint(-1, 1)
+                        if 0 <= drip_x < 128 and 0 <= drip_y < 128:
+                            draw.ellipse([drip_x - 2, drip_y - 2, drip_x + 2, drip_y + 2], fill=crimson_arterial)
+
+                elif wound_style == "blood_drips_splatter":
+                    # Arterial splatters and dripping drops on skin
+                    for _ in range(rng.randint(6, 14)):
+                        sx = rng.randint(15, 110)
+                        sy = rng.randint(15, 110)
+                        sr = rng.randint(4, 10)
+                        draw.ellipse([sx - sr, sy - sr, sx + sr, sy + sr], fill=crimson_arterial)
+                        # Downward gravity drip
+                        for d in range(rng.randint(4, 15)):
+                            draw.ellipse([sx - 1, sy + sr + d * 2, sx + 1, sy + sr + d * 2 + 2], fill=crimson_arterial)
+
+                elif wound_style == "severe_hematoma":
+                    # Deep contusion bruise: purple, blue, green-yellow
+                    rad = rng.randint(25, 45)
+                    draw.ellipse([wx - rad - 8, wy - rad - 8, wx + rad + 8, wy + rad + 8], fill=bruise_yellow_green)
+                    draw.ellipse([wx - rad, wy - rad, wx + rad, wy + rad], fill=bruise_violet)
+                    draw.ellipse([wx - rad // 2, wy - rad // 2, wx + rad // 2, wy + rad // 2], fill=dark_coagulated)
+
+                elif wound_style == "bloody_bandage_gauze":
+                    # Gauze dressing with blood seepage
+                    gx0, gy0 = wx - 28, wy - 22
+                    gx1, gy1 = wx + 28, wy + 22
+                    # White bandage pad
+                    draw.rectangle([gx0, gy0, gx1, gy1], fill=(235, 235, 230))
+                    # Adhesive border
+                    draw.rectangle([gx0 - 8, gy0 + 4, gx0, gy1 - 4], fill=(210, 195, 165))
+                    draw.rectangle([gx1, gy0 + 4, gx1 + 8, gy1 - 4], fill=(210, 195, 165))
+                    # Blood seepage in center
+                    draw.ellipse([wx - 14, wy - 10, wx + 14, wy + 10], fill=crimson_arterial)
+                    draw.ellipse([wx - 7, wy - 5, wx + 7, wy + 5], fill=dark_coagulated)
 
                 else:
-                    # Puncture / infected wound with central dark core and inflamed red ring
-                    wx, wy = rng.randint(40, 85), rng.randint(40, 85)
-                    draw.ellipse([wx - 25, wy - 25, wx + 25, wy + 25], fill=bruise_edge)
-                    draw.ellipse([wx - 15, wy - 15, wx + 15, wy + 15], fill=crimson)
-                    draw.ellipse([wx - 6, wy - 6, wx + 6, wy + 6], fill=dark_clot)
+                    # Limb with nearby clothing and acute wound
+                    # Denim or fabric on half the image
+                    draw.rectangle([0, 0, 55, 128], fill=(35, 60, 110))
+                    # Acute wound on exposed skin portion
+                    draw.ellipse([80, wy - 16, 115, wy + 16], fill=inflamed_halo)
+                    draw.ellipse([85, wy - 10, 110, wy + 10], fill=raw_flesh)
+                    for _ in range(6):
+                        sx, sy = rng.randint(87, 108), wy + rng.randint(-8, 8)
+                        draw.ellipse([sx - 2, sy - 2, sx + 2, sy + 2], fill=crimson_arterial)
 
             # Apply subtle smoothing / camera noise
             img = img.filter(ImageFilter.SMOOTH_MORE)

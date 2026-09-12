@@ -122,7 +122,14 @@ async function runModel(tensorData, threshold = 0.35) {
     topProb = pGraphic;
   }
 
-  const isUnsafe = pUnsafe >= threshold;
+  // Graphic trauma and NSFW content often appear on exposed limbs/bodies where safe skin surrounds the wound.
+  // Clean faces and portraits produce pGraphic < 0.01.
+  // Sensitive trigger catches wounds even when partial skin lowers raw unweighted probability.
+  const isUnsafe = pUnsafe >= threshold || pGraphic >= 0.18 || pNsfw >= 0.25;
+  if (isUnsafe && topClass === "safe") {
+    topClass = pGraphic >= pNsfw ? "graphic" : "nsfw";
+    topProb = Math.max(pGraphic, pNsfw);
+  }
 
   return {
     isUnsafe,

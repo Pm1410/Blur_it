@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (chrome.storage && chrome.storage.sync) {
     chrome.storage.sync.get(["enabled", "threshold"], (data) => {
       const enabled = data.enabled !== undefined ? data.enabled : true;
-      const threshold = data.threshold !== undefined ? data.threshold : 0.35;
+      const threshold = data.threshold !== undefined ? data.threshold : 0.30;
 
       toggle.checked = enabled;
       slider.value = threshold;

@@ -682,7 +682,7 @@
         const tgt = inputEl && document.body.contains(inputEl) ? inputEl : activeDraftInput;
         await applyTextReplacement(tgt, result.suggestion);
         try { await navigator.clipboard.writeText(result.suggestion); } catch {}
-        showToast("✨ Text replaced! Copied to clipboard too.");
+        showToast("✨ Text updated with polite alternative");
         setTimeout(() => { document.getElementById("aimi-btn-replace").disabled = false; }, 600);
         if (chrome.storage?.local) {
           chrome.storage.local.get(["aimiStats"], (d) => {

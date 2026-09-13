@@ -629,40 +629,49 @@
   let vibeDebounceTimer = null;
 
   function initVibeChecker() {
-    if (document.getElementById("aimi-vibe-tooltip")) return;
-
-    const tooltip = document.createElement("div");
-    tooltip.id = "aimi-vibe-tooltip";
-    tooltip.innerHTML = `
-      <div class="aimi-tip-header">
-        <div class="aimi-tip-title">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-          <span>Tone Advisory</span>
+    let tooltip = document.getElementById("aimi-vibe-tooltip");
+    if (!tooltip) {
+      tooltip = document.createElement("div");
+      tooltip.id = "aimi-vibe-tooltip";
+      tooltip.innerHTML = `
+        <div class="aimi-tip-header">
+          <div class="aimi-tip-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            <span>Tone Advisory</span>
+          </div>
+          <span class="aimi-tip-badge" id="aimi-reason-badge">Toxic</span>
         </div>
-        <span class="aimi-tip-badge" id="aimi-reason-badge">Toxic</span>
-      </div>
-      <div class="aimi-tip-body">
-        This phrasing may be perceived as abrasive. Suggested alternative:
-        <div class="aimi-suggestion-box" id="aimi-suggestion-text"></div>
-      </div>
-      <div class="aimi-tip-actions">
-        <button class="aimi-btn-replace" id="aimi-btn-replace" type="button">Replace Text</button>
-        <button class="aimi-btn-ignore" id="aimi-btn-ignore" type="button">Dismiss</button>
-      </div>`;
-    document.body.appendChild(tooltip);
+        <div class="aimi-tip-body">
+          This phrasing may be perceived as abrasive. Suggested alternative:
+          <div class="aimi-suggestion-box" id="aimi-suggestion-text"></div>
+        </div>
+        <div class="aimi-tip-actions">
+          <button class="aimi-btn-replace" id="aimi-btn-replace" type="button">Replace Text</button>
+          <button class="aimi-btn-ignore" id="aimi-btn-ignore" type="button">Dismiss</button>
+        </div>`;
+      document.body.appendChild(tooltip);
+    }
 
     function showTooltip(result, inputEl) {
       activeDraftInput = inputEl;
-      document.getElementById("aimi-reason-badge").textContent = result.reason || "Toxic Tone";
-      document.getElementById("aimi-suggestion-text").textContent = `"${result.suggestion}"`;
+      const reasonBadge = document.getElementById("aimi-reason-badge");
+      const suggText = document.getElementById("aimi-suggestion-text");
+      if (reasonBadge) reasonBadge.textContent = result.reason || "Toxic Tone";
+      if (suggText) suggText.textContent = `"${result.suggestion}"`;
       tooltip.style.display = "block";
-      const rect = inputEl.getBoundingClientRect();
+
+      const box = inputEl.closest('[contenteditable="true"]') || inputEl.closest('[role="textbox"]') || inputEl;
+      const rect = box.getBoundingClientRect();
       const tipRect = tooltip.getBoundingClientRect();
-      const top = rect.top - tipRect.height - 10 > 10
-        ? window.scrollY + rect.top - tipRect.height - 10
-        : window.scrollY + rect.bottom + 10;
-      let left = window.scrollX + rect.left;
-      if (left + tipRect.width > window.innerWidth - 20) left = window.innerWidth - tipRect.width - 20;
+
+      let top = rect.top - tipRect.height - 12;
+      if (top < 10) top = rect.bottom + 12;
+      let left = Math.max(16, rect.left);
+      if (left + tipRect.width > window.innerWidth - 20) {
+        left = window.innerWidth - tipRect.width - 20;
+      }
+
+      tooltip.style.position = "fixed";
       tooltip.style.top = Math.max(10, top) + "px";
       tooltip.style.left = Math.max(10, left) + "px";
 
@@ -676,39 +685,56 @@
         showToast("✨ Text replaced! Copied to clipboard too.");
         setTimeout(() => { document.getElementById("aimi-btn-replace").disabled = false; }, 600);
         if (chrome.storage?.local) {
-          chrome.storage.local.get(["aimiStats"],(d)=>{const s=d.aimiStats||{};s.vibeReplaced=(s.vibeReplaced||0)+1;chrome.storage.local.set({aimiStats:s});});
+          chrome.storage.local.get(["aimiStats"], (d) => {
+            const s = d.aimiStats || {};
+            s.vibeReplaced = (s.vibeReplaced || 0) + 1;
+            chrome.storage.local.set({ aimiStats: s });
+          });
         }
       };
-      document.getElementById("aimi-btn-ignore").onclick = (e) => { e.preventDefault(); e.stopPropagation(); tooltip.style.display="none"; };
+
+      document.getElementById("aimi-btn-ignore").onclick = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        tooltip.style.display = "none";
+      };
     }
 
-    // Passive, non-intrusive background check on active composer
-    document.addEventListener("input", (e) => {
+    function checkActiveComposer(target) {
       if (!CFG.vibeCheckEnabled) return;
-      const target = e.target;
-      if (!target) return;
-      const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
-      if (!isInput) return;
+      const composer = (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable))
+        ? target
+        : (document.activeElement?.isContentEditable || document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA" ? document.activeElement : null);
 
-      clearTimeout(vibeDebounceTimer);
-      vibeDebounceTimer = setTimeout(async () => {
-        const text = target.isContentEditable ? target.innerText : target.value;
-        if (!text || text.trim().length < 3) {
-          tooltip.style.display = "none";
-          return;
-        }
-        const result = await analyzeToxicity(text);
-        if (result.isToxic) {
-          showTooltip(result, target);
-        } else {
-          tooltip.style.display = "none";
-        }
-      }, 700);
-    }, { passive: true });
+      if (!composer) return;
+      const text = (composer.innerText || composer.textContent || composer.value || "").trim();
+      if (!text || text.length < 3) {
+        tooltip.style.display = "none";
+        return;
+      }
 
-    document.addEventListener("keydown", (e) => { if(e.key==="Escape") tooltip.style.display="none"; });
+      // Fast local evaluation (< 0.1ms)
+      const score = localToxicityScore(text);
+      if (score >= CFG.toxicityThreshold) {
+        const suggestion = localRephrase(text);
+        showTooltip({ isToxic: true, score, reason: "Abusive language detected", suggestion }, composer);
+      } else {
+        tooltip.style.display = "none";
+      }
+    }
+
+    // Capture-phase listeners to beat any framework stopPropagation
+    ["input", "keyup", "paste"].forEach(evType => {
+      document.addEventListener(evType, (e) => {
+        clearTimeout(vibeDebounceTimer);
+        vibeDebounceTimer = setTimeout(() => {
+          checkActiveComposer(e.target);
+        }, 300);
+      }, true);
+    });
+
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") tooltip.style.display = "none"; });
     document.addEventListener("pointerdown", (e) => {
-      if(!tooltip.contains(e.target)) tooltip.style.display="none";
+      if (!tooltip.contains(e.target)) tooltip.style.display = "none";
     });
   }
 

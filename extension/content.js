@@ -636,7 +636,7 @@
       tooltip.innerHTML = `
         <div class="aimi-tip-header">
           <div class="aimi-tip-title">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
             <span>Tone Advisory</span>
           </div>
           <span class="aimi-tip-badge" id="aimi-reason-badge">Toxic</span>

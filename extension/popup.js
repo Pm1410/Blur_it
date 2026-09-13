@@ -155,24 +155,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (moodScoreText) moodScoreText.textContent = `Mindset: Preserved (${moodPct}%)`;
 
     if (moodPct >= 80) {
-      if (moodEmoji) moodEmoji.textContent = "😌";
-      if (moodBadge) { moodBadge.textContent = "Calm"; moodBadge.style.color = "#10b981"; }
-      if (moodSubtext) moodSubtext.textContent = "Shielded from negative emotional drift";
+      if (moodEmoji) moodEmoji.textContent = "○";
+      if (moodBadge) moodBadge.textContent = "Optimal";
+      if (moodSubtext) moodSubtext.textContent = "Shielded from emotional noise";
     } else if (moodPct >= 60) {
-      if (moodEmoji) moodEmoji.textContent = "😐";
-      if (moodBadge) { moodBadge.textContent = "Moderate"; moodBadge.style.color = "#f59e0b"; }
-      if (moodSubtext) moodSubtext.textContent = "Some toxic noise encountered in feed";
+      if (moodEmoji) moodEmoji.textContent = "◐";
+      if (moodBadge) moodBadge.textContent = "Moderate";
+      if (moodSubtext) moodSubtext.textContent = "Filtered noise detected";
     } else {
-      if (moodEmoji) moodEmoji.textContent = "😮‍💨";
-      if (moodBadge) { moodBadge.textContent = "Heavy Noise"; moodBadge.style.color = "#f43f5e"; }
-      if (moodSubtext) moodSubtext.textContent = "Take a breather — heavy toxicity in feed";
+      if (moodEmoji) moodEmoji.textContent = "●";
+      if (moodBadge) moodBadge.textContent = "High Filtered";
+      if (moodSubtext) moodSubtext.textContent = "Heavy noise neutralized";
     }
 
     if (moodInsights) {
       if (totalNeutralized === 0) {
-        moodInsights.textContent = "🛡️ 0 toxic triggers neutralized · Zero doomscrolling fatigue detected.";
+        moodInsights.textContent = "0 triggers neutralized · Neutral feed state maintained.";
       } else {
-        moodInsights.textContent = `🛡️ ${totalNeutralized} toxic triggers neutralized · Shield prevented an estimated ${Math.round(totalNeutralized * 14)}% mood drop.`;
+        moodInsights.textContent = `${totalNeutralized} triggers neutralized · Zero negative exposure.`;
       }
     }
   }

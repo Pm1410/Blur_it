@@ -751,23 +751,42 @@
         if (ceRoot) {
           ceRoot.focus();
 
-          const range = document.createRange();
-          range.selectNodeContents(ceRoot);
-          const sel = window.getSelection();
-          sel.removeAllRanges();
-          sel.addRange(range);
+          // Select all text nodes from first to last (required for Lexical / Draft.js AST)
+          const walker = document.createTreeWalker(ceRoot, NodeFilter.SHOW_TEXT, null, false);
+          let firstText = walker.nextNode();
+          let lastText = firstText;
+          let curr;
+          while ((curr = walker.nextNode())) {
+            lastText = curr;
+          }
 
-          let replaced = false;
-          try {
-            replaced = document.execCommand("insertText", false, newText);
-          } catch (e) {}
+          if (firstText && lastText) {
+            const range = document.createRange();
+            range.setStart(firstText, 0);
+            range.setEnd(lastText, lastText.textContent.length);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            try {
+              document.execCommand("insertText", false, newText);
+            } catch (e) {}
+          }
 
-          if (!replaced || ceRoot.innerText.trim() !== newText.trim()) {
-            const span = ceRoot.querySelector('span[data-lexical-text="true"]') || ceRoot.querySelector('p');
-            if (span) {
-              span.textContent = newText;
+          // Prune and clean up any multiple or corrupted spans created by Lexical
+          if (ceRoot.innerText.trim() !== newText.trim()) {
+            const spans = ceRoot.querySelectorAll('span[data-lexical-text="true"]');
+            if (spans.length > 0) {
+              spans[0].textContent = newText;
+              for (let i = 1; i < spans.length; i++) {
+                spans[i].remove();
+              }
             } else {
-              ceRoot.innerText = newText;
+              const p = ceRoot.querySelector('p');
+              if (p) {
+                p.textContent = newText;
+              } else {
+                ceRoot.textContent = newText;
+              }
             }
           }
 

@@ -229,14 +229,41 @@ btnUnblur.addEventListener('click', () => {
     }
 });
 
+const processedImgs = new WeakSet();
+
+async function processSmartImage(img) {
+    if (!img.complete || (img.naturalWidth === 0 && img.width === 0)) {
+        img.addEventListener("load", () => processSmartImage(img), {once:true}); 
+        return;
+    }
+    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+    if (w < 40 || h < 40) return;
+    const rawUrl = img.currentSrc || img.src;
+    if (!rawUrl || rawUrl.startsWith('data:')) return; 
+
+    if (processedImgs.has(img)) return;
+    processedImgs.add(img);
+
+    chrome.runtime.sendMessage({
+        type: "CLASSIFY_IMAGE",
+        url: rawUrl,
+        threshold: 0.30
+    }, (response) => {
+        if (response && response.success && response.result.isUnsafe) {
+            img.classList.add('cyhi-image-blurred');
+            // Log it for the hackathon judges in the console!
+            console.log(`[Smart Image Scanner] Blurred unsafe image: Confidence ${(response.result.confidence * 100).toFixed(1)}%`);
+        }
+    });
+}
+
 btnImage.addEventListener('click', () => {
     imageBlurMode = !imageBlurMode;
     if (imageBlurMode) {
         btnImage.classList.add('active');
         document.body.classList.add('cyhi-image-mode');
-        document.querySelectorAll('img, picture, video, iframe').forEach(img => {
-            img.classList.add('cyhi-image-blurred');
-        });
+        // Scan all existing images
+        document.querySelectorAll('img').forEach(processSmartImage);
     } else {
         btnImage.classList.remove('active');
         document.body.classList.remove('cyhi-image-mode');
@@ -440,12 +467,10 @@ const observer = new MutationObserver((mutations) => {
                 
                 // Image Zen Mode Dynamic Protection
                 if (imageBlurMode) {
-                    if (node.tagName === 'IMG' || node.tagName === 'VIDEO' || node.tagName === 'PICTURE' || node.tagName === 'IFRAME') {
-                        node.classList.add('cyhi-image-blurred');
+                    if (node.tagName === 'IMG') {
+                        processSmartImage(node);
                     } else if (node.querySelectorAll) {
-                        node.querySelectorAll('img, video, picture, iframe').forEach(img => {
-                            img.classList.add('cyhi-image-blurred');
-                        });
+                        node.querySelectorAll('img').forEach(processSmartImage);
                     }
                 }
             }

@@ -1,57 +1,78 @@
 /**
- * Local NSFW Shield - DOM Overlay & Blur Styles
+ * BlurIt - Modern In-Page Overlay & Clean Unblur Styles
  */
 
 .nsfw-shield-blurred {
-  filter: blur(26px) brightness(0.8) !important;
-  transition: filter 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  filter: blur(28px) brightness(0.85) saturate(0.8) !important;
+  transition: filter 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
   user-select: none !important;
-  pointer-events: none !important;
 }
 
 .nsfw-shield-container {
   position: relative !important;
   overflow: hidden !important;
   display: inline-block !important;
-  border-radius: 4px !important;
+  border-radius: 6px !important;
 }
 
-.nsfw-shield-badge {
+/* Sleek Frosted Glass Toggle Pill */
+.blur-it-toggle-btn {
   position: absolute !important;
   top: 50% !important;
   left: 50% !important;
   transform: translate(-50%, -50%) !important;
-  background: rgba(18, 18, 22, 0.88) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  color: #f1f5f9 !important;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-  font-size: 12px !important;
-  font-weight: 600 !important;
-  padding: 6px 12px !important;
+  background: rgba(15, 23, 42, 0.78) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #f8fafc !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  padding: 6px 14px !important;
   border-radius: 20px !important;
-  display: flex !important;
+  display: inline-flex !important;
   align-items: center !important;
-  gap: 8px !important;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+  gap: 6px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.05) inset !important;
+  cursor: pointer !important;
   z-index: 2147483640 !important;
   pointer-events: auto !important;
   white-space: nowrap !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-.nsfw-shield-reveal-btn {
-  background: #3b82f6 !important;
-  color: #ffffff !important;
-  border: none !important;
-  padding: 3px 8px !important;
-  border-radius: 12px !important;
-  font-size: 11px !important;
-  font-weight: 600 !important;
-  cursor: pointer !important;
-  transition: background 0.15s ease !important;
+.blur-it-toggle-btn:hover {
+  background: rgba(15, 23, 42, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  transform: translate(-50%, -50%) scale(1.05) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45) !important;
 }
 
-.nsfw-shield-reveal-btn:hover {
-  background: #2563eb !important;
+.blur-it-toggle-btn:active {
+  transform: translate(-50%, -50%) scale(0.96) !important;
+}
+
+.blur-it-icon {
+  opacity: 0.9 !important;
+  stroke: currentColor !important;
+}
+
+/* When image is unblurred (revealed), tuck the toggle cleanly into the top corner */
+.blur-it-toggle-btn.blur-it-revealed {
+  top: 10px !important;
+  left: auto !important;
+  right: 10px !important;
+  transform: none !important;
+  padding: 4px 10px !important;
+  font-size: 10px !important;
+  background: rgba(15, 23, 42, 0.5) !important;
+  opacity: 0.45 !important;
+}
+
+.blur-it-toggle-btn.blur-it-revealed:hover {
+  opacity: 1 !important;
+  background: rgba(15, 23, 42, 0.85) !important;
+  transform: scale(1.03) !important;
 }

@@ -22,7 +22,7 @@
 }
 
 #cyhi-sidebar.expanded {
-    width: 305px; /* Expanded: 3 icons (135) + Vibe Check (110) + Rating (60) */
+    width: 350px; /* Expanded: 4 icons (180) + Vibe Check (110) + Rating (60) */
 }
 
 .cyhi-tool {
@@ -103,6 +103,21 @@ body.cyhi-paused .cyhi-blurred {
 body.cyhi-mode-hoverer { cursor: crosshair !important; }
 body.cyhi-mode-unblur .cyhi-blurred { cursor: pointer !important; }
 body.cyhi-mode-unblur .cyhi-blurred:hover { box-shadow: 0 0 10px rgba(255, 255, 255, 0.3); border-radius: 4px; }
+
+/* Image Blur Mode Rules */
+.cyhi-image-blurred {
+    filter: blur(28px) brightness(0.8) !important;
+    transition: filter 0.25s ease !important;
+    cursor: pointer !important;
+}
+.cyhi-image-blurred.cyhi-image-revealed {
+    filter: none !important;
+    outline: 2px dashed rgba(255, 255, 255, 0.8) !important;
+    outline-offset: -2px;
+}
+.cyhi-image-blurred:hover {
+    box-shadow: 0 0 15px rgba(255,255,255,0.4);
+}
 
 
 /* Popup Box */

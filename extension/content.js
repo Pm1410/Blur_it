@@ -95,6 +95,7 @@ const sidebar = document.createElement('div');
 sidebar.id = 'cyhi-sidebar';
 sidebar.innerHTML = `
   <div class="cyhi-tool cyhi-tool-icon" id="btn-pause" title="Play/Pause Scanner">⏸</div>
+  <div class="cyhi-tool cyhi-tool-icon" id="btn-image" title="Image Blur Mode">🖼</div>
   <div class="cyhi-tool cyhi-tool-icon" id="btn-hoverer" title="Hover Scanner Tool">🔍</div>
   <div class="cyhi-tool cyhi-tool-icon" id="btn-unblur" title="Unblur Tool">👁</div>
   <div class="cyhi-tool" id="btn-vibe-check" title="Vibe Check Textbox">V-C</div>
@@ -116,12 +117,14 @@ const ratingBox = document.getElementById('cyhi-rating-box');
 const btnPause = document.getElementById('btn-pause');
 const btnHoverer = document.getElementById('btn-hoverer');
 const btnUnblur = document.getElementById('btn-unblur');
+const btnImage = document.getElementById('btn-image');
 const vibeButton = document.getElementById('btn-vibe-check');
 
 // --- UNIFIED STATE ---
 let globalMaxToxicity = 0;
 let isPaused = false;
 let currentMode = 'default';
+let imageBlurMode = false;
 let isExpanded = false;
 let activeInputField = null;
 let collapseTimeout = null;
@@ -131,7 +134,7 @@ console.log(`%c[CYHI ENGINE ONLINE]`, 'color: #00ff00; font-weight: bold; font-s
 console.log(`%c✓ 100% Offline Edge-Compute Architecture`, 'color: #00ff00;');
 console.log(`%c✓ Hindi/Hinglish Dictionary: ${hinglish_swear_words.length} terms loaded`, 'color: #00ffff;');
 console.log(`%c✓ English Dictionary: ${englishToxicWords.length + englishSevere.length + englishMild.length} terms loaded`, 'color: #00ffff;');
-console.log(`%c✓ Active Modes: Feed Scanner (DOM) + Vibe Check (Input)`, 'color: #ffaa00;');
+console.log(`%c✓ Active Modes: Feed Scanner (DOM) + Vibe Check (Input) + Image Zen Mode`, 'color: #ffaa00;');
 
 function resetCollapseTimer() {
     clearTimeout(collapseTimeout);
@@ -226,6 +229,24 @@ btnUnblur.addEventListener('click', () => {
     }
 });
 
+btnImage.addEventListener('click', () => {
+    imageBlurMode = !imageBlurMode;
+    if (imageBlurMode) {
+        btnImage.classList.add('active');
+        document.body.classList.add('cyhi-image-mode');
+        document.querySelectorAll('img, picture, video, iframe').forEach(img => {
+            img.classList.add('cyhi-image-blurred');
+        });
+    } else {
+        btnImage.classList.remove('active');
+        document.body.classList.remove('cyhi-image-mode');
+        document.querySelectorAll('.cyhi-image-blurred').forEach(img => {
+            img.classList.remove('cyhi-image-blurred');
+            img.classList.remove('cyhi-image-revealed');
+        });
+    }
+});
+
 document.addEventListener('mouseover', (e) => {
     if (currentMode === 'hoverer' && !isPaused) {
         if (e.target.hasAttribute('data-toxic-score')) {
@@ -243,6 +264,7 @@ document.addEventListener('mouseover', (e) => {
 });
 
 document.addEventListener('click', (e) => {
+    // Unblur Text
     if (currentMode === 'unblur' && !isPaused) {
         if (e.target.classList.contains('cyhi-blurred') || e.target.closest('.cyhi-blurred')) {
             e.preventDefault();
@@ -250,6 +272,12 @@ document.addEventListener('click', (e) => {
             let el = e.target.classList.contains('cyhi-blurred') ? e.target : e.target.closest('.cyhi-blurred');
             el.classList.add('cyhi-unblurred-override');
         }
+    }
+    // Unblur Image
+    if (imageBlurMode && e.target.classList.contains('cyhi-image-blurred')) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.target.classList.toggle('cyhi-image-revealed');
     }
 }, true);
 
@@ -409,6 +437,17 @@ const observer = new MutationObserver((mutations) => {
         mutation.addedNodes.forEach(node => {
             if (node.nodeType === Node.ELEMENT_NODE && node.id !== 'cyhi-sidebar') {
                 scanNode(node);
+                
+                // Image Zen Mode Dynamic Protection
+                if (imageBlurMode) {
+                    if (node.tagName === 'IMG' || node.tagName === 'VIDEO' || node.tagName === 'PICTURE' || node.tagName === 'IFRAME') {
+                        node.classList.add('cyhi-image-blurred');
+                    } else if (node.querySelectorAll) {
+                        node.querySelectorAll('img, video, picture, iframe').forEach(img => {
+                            img.classList.add('cyhi-image-blurred');
+                        });
+                    }
+                }
             }
         });
     });

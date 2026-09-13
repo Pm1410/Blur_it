@@ -1,923 +1,780 @@
 /**
- * Content Script for Local NSFW Shield
- * - Scans DOM images and dynamically added elements
- * - Resolves image URLs and delegates on-device classification to extension offscreen worker
- * - Applies non-destructive CSS blur with click-to-reveal badge
+ * AI/M.I. Content Script v1.0
+ * A Layer Between You and the Noise
+ *
+ * 4 capabilities:
+ *  1. Toxicity Feed Filter  — blur toxic posts & messages (WhatsApp Web, Instagram, Twitter, Reddit, Search)
+ *  2. NSFW Image Shield     — blur explicit images via CNN (offscreen WASM)
+ *  3. Semantic Topic Filter — hide posts matching user topics via semantic clusters & similarity
+ *  4. Pre-Post Vibe Checker — detect toxicity in composer drafts before sending, offer clean rephrase
  */
 
 (function () {
   "use strict";
+  if (window.__aimiLoaded) return;
+  window.__aimiLoaded = true;
 
-  if (window.__nsfwShieldLoaded) return;
-  window.__nsfwShieldLoaded = true;
-
-  const CONFIG = {
-    minSize: 40 // Skip tiny icons, emojis, tracking pixels
+  /* ══════════════════════════════════════════════════════════════
+   *  SETTINGS (synced from chrome.storage)
+   * ══════════════════════════════════════════════════════════════ */
+  let CFG = {
+    toxicityEnabled: true,
+    nsfwEnabled: true,
+    semanticEnabled: false,
+    vibeCheckEnabled: true,
+    toxicityThreshold: 0.55,
+    semanticThreshold: 0.60,
+    semanticTopics: [],
+    nsfwThreshold: 0.30
   };
 
-  let isEnabled = true;
-  let sensitivityThreshold = 0.30;
-  const processedCache = new Map(); // url -> result
+  /* Session stats */
+  let STATS = { postsScanned: 0, toxicCount: 0, nsfwCount: 0, semanticMatches: 0, toxicitySum: 0 };
 
+  function saveStats() {
+    chrome.storage?.local?.set({ aimiStats: STATS });
+  }
+
+  function loadSettings(cb) {
+    if (!chrome.storage?.sync) { cb(); return; }
+    chrome.storage.sync.get(["aimiConfig"], (data) => {
+      if (data.aimiConfig) Object.assign(CFG, data.aimiConfig);
+      cb();
+    });
+  }
+
+  function listenSettingsChanges() {
+    chrome.storage?.onChanged?.addListener((changes, area) => {
+      if (area === "sync" && changes.aimiConfig) {
+        Object.assign(CFG, changes.aimiConfig.newValue || {});
+      }
+    });
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+   *  CONTENT-HASH CACHE  (session-scoped, bounded)
+   * ══════════════════════════════════════════════════════════════ */
+  const MAX_CACHE = 500;
+  const inferenceCache = new Map(); // hash → { type, score, result, ts }
+
+  function simpleHash(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = (h * 16777619) >>> 0;
+    }
+    return h.toString(36);
+  }
+
+  function cacheGet(hash) { return inferenceCache.get(hash); }
+  function cacheSet(hash, val) {
+    if (inferenceCache.size >= MAX_CACHE) {
+      const oldest = inferenceCache.keys().next().value;
+      inferenceCache.delete(oldest);
+    }
+    inferenceCache.set(hash, val);
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+   *  BOUNDED TWO-TIER QUEUE
+   * ══════════════════════════════════════════════════════════════ */
+  const MAX_QUEUE = 30;
+  const queue = { high: [], low: [] };
+  const pendingIds = new Set();
+  let queueRunning = false;
+
+  function enqueue(job) {
+    if (pendingIds.has(job.id)) return;
+    // Check cache before queuing
+    const cached = cacheGet(job.hash);
+    if (cached) { applyResult(job.element, job.type, cached); return; }
+
+    pendingIds.add(job.id);
+    if (job.priority === "HIGH") {
+      queue.high.push(job);
+    } else {
+      if (queue.high.length + queue.low.length >= MAX_QUEUE) {
+        queue.low.shift();
+      }
+      queue.low.push(job);
+    }
+    if (!queueRunning) drainQueue();
+  }
+
+  async function drainQueue() {
+    queueRunning = true;
+    while (queue.high.length > 0 || queue.low.length > 0) {
+      const job = queue.high.shift() || queue.low.shift();
+      if (!job) break;
+      pendingIds.delete(job.id);
+      try { await processJob(job); } catch {}
+      await new Promise(r => setTimeout(r, 0)); // yield to main thread
+    }
+    queueRunning = false;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+   *  ON-DEVICE TOXICITY ANALYSIS (client-side fallback engine)
+   * ══════════════════════════════════════════════════════════════ */
+  const FILLER_WORDS = [
+    "mc","bc","b.c.","m.c.","mkc","bsdk","bkl","bck","madarchod","behenchod","bhenchod",
+    "bhosadike","bhosdike","bhosdiwale","cunt","fck","stfu","kys"
+  ];
+  const TOXIC_WORDS = [
+    "chutiya","chutiye","bakchodi","saala","saale","kutta","kutte","harami","haraami",
+    "kamina","kaminey","kamine","randi","bhadwa","bhadwe","gandu","gndu","lodu","laude",
+    "lavde","lnd","lund","chut","gaand","bhosdi","tatte","jhaatu","chod","chodo","chodna",
+    "chudai","chudwa","gaandmasti","dalaal","suar","suar ki aulad","namak haram","haraamzada",
+    "bewakoof","gadha","ullu","ullu ke patthe","dimaag kharab","pagal","andhe","bakwas",
+    "chup kar","aukaat","aukat","bhad me ja","bhaad mein ja","mar ja","jahil","nirlajj",
+    "fuck","fucking","fucked","fucker","goat fucker","shit","bitch","asshole","moron",
+    "idiot","retard","scumbag","dickhead","bastard","hate you","kill yourself","go die",
+    "rape","balatkaar","kutte ki zat","कुत्ते की ज़ात","सूअर की औलाद","gadhe ki aulad",
+    "गधे की औलाद","bandar ki aulad","बंदर की औलाद","हरामी","हरामज़ादा","चूतिया","चुतिया",
+    "टट्टी","लंड","गांडू","भड़वा","रांड","रंडी","चूत","lavda","लौड़ा","lawda","loda",
+    "chodu","चोदू","chutmar","चूतमार","chutiyapa","चूतियापा","बहनचोद","मादरचोद","भोसड़ीके",
+    "भोसड़ीके","गांड","अपशब्द","फक","motherfucker","dumbass","dipshit","bullshit",
+    "piece of shit","shut up","get lost","whore","slut","dick","pussy","teri maa ki",
+    "teri ma ki","maa chuda","gand mara","gaand mara","lode","lauda","jhantu","jhant",
+    "chinal","hijra","hijda","bhen ke lode","teri aisi taisi","ugly","loser","clown",
+    "disgusting","pathetic","trash","garbage","die"
+  ];
+  const THREATS = [
+    "send you to heaven","hunt you down","will end you","dig a grave","put you in a body bag",
+    "sleep with the fishes","put you in the ground","send you to god","meet your maker",
+    "know where you live","i will kill you","slit your throat","watch your back","die in a fire"
+  ];
+  const REPHRASE = {
+    "idiot":"misguided person","idiots":"those who disagree","moron":"misinformed person",
+    "morons":"misinformed people","stupid":"unhelpful","hate":"disagree with",
+    "shut up":"let's pause","chup kar":"let's pause","fuck off":"please give me space",
+    "fuck you":"I disagree with you","fucking":"extremely","shit":"subpar","crap":"low quality",
+    "asshole":"unreasonable person","chutiya":"confused person","chutiye":"confused person",
+    "saala":"friend","saale":"friend","gandu":"fellow","bitch":"person","bastard":"individual",
+    "bewakoof":"uninformed person","gadha":"stubborn one","ullu":"friend",
+    "bakwas":"unhelpful discussion","nikal":"please leave","chal nikal":"let's move on",
+    "suar":"unpleasant individual","pagal":"excited","aukaat":"capability","aukat":"capability",
+    "bhosdi wala":"friend","bhosdike":"friend","kaminey":"friend","kamine":"friend",
+    "ugly":"unique","loser":"striving learner","clown":"entertainer","चूतिया":"confused person",
+    "हरामी":"mischievous person"
+  };
+
+  function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+  function normLeet(text) {
+    const m = {"0":"o","1":"i","3":"e","4":"a","5":"s","@":"a","$":"s","!":"i"};
+    let n = ""; for (const c of (text||"")) n += m[c]||c;
+    return n.replace(/f[*_\-.]+(u?)c?k/gi,"fuck")
+            .replace(/f[*_\-.]+(u?)c?king/gi,"fucking")
+            .replace(/sh[*_\-.]+(i?)t/gi,"shit")
+            .replace(/b[*_\-.]+(i?)t?ch/gi,"bitch")
+            .replace(/b[*_\-.]+sdk/gi,"bsdk")
+            .replace(/ch[*_\-.]+t/gi,"chut");
+  }
+  function buildW(w, isFiller) {
+    const dev=/[\u0900-\u097F]/.test(w), e=esc(w);
+    let tR,rR;
+    if(dev){tR=new RegExp("(?<=^|[^\\p{L}\\p{N}])"+e+"(?=$|[^\\p{L}\\p{N}])","ui");rR=new RegExp("(?<=^|[^\\p{L}\\p{N}])"+e+"(?=$|[^\\p{L}\\p{N}])","gui");}
+    else{const p=/^\w/.test(w)?"\\b":"(?<=^|\\s)",s=/\w$/.test(w)?"\\b":"(?=$|\\s)";tR=new RegExp(p+e+s,"i");rR=new RegExp(p+e+s,"gi");}
+    return {word:w,isFiller,tR,rR};
+  }
+  const COMPILED_SWEARS = [...FILLER_WORDS.map(w=>buildW(w,true)),...TOXIC_WORDS.map(w=>buildW(w,false))].sort((a,b)=>b.word.length-a.word.length);
+
+  function localToxicityScore(text) {
+    if (!text || text.length < 2) return 0;
+    const norm = normLeet(text), lower = norm.toLowerCase();
+    let score = 0;
+    for (const t of THREATS) { if (lower.includes(t)) { score = Math.max(score, 0.95); } }
+    for (const item of COMPILED_SWEARS) {
+      if (item.tR.test(norm)) { score = Math.max(score, item.isFiller ? 0.75 : 0.85); }
+    }
+    return score;
+  }
+
+  function localRephrase(rawText) {
+    const norm = normLeet(rawText);
+    let sug = norm;
+    for (const t of THREATS) sug = sug.replace(new RegExp(esc(t),"gi"), "resolve our disagreement calmly");
+    for (const item of COMPILED_SWEARS) {
+      if (item.tR.test(sug)) {
+        const rep = item.isFiller ? "" : (REPHRASE[item.word.toLowerCase()] || REPHRASE[item.word] || "***");
+        sug = sug.replace(item.rR, rep);
+      }
+    }
+    sug = sug.replace(/\s*,\s*,+/g,",").replace(/\s*,\s*/g,", ").replace(/\s{2,}/g," ").trim();
+    return sug || "I would like to offer constructive feedback on this.";
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+   *  TOXICITY ANALYSIS  (background bridge → local fallback)
+   * ══════════════════════════════════════════════════════════════ */
+  async function analyzeToxicity(text) {
+    // Try background worker → local FastAPI server
+    if (chrome.runtime?.sendMessage) {
+      try {
+        const res = await new Promise(resolve => {
+          chrome.runtime.sendMessage({type:"CHECK_VIBE_BACKEND", text}, r => resolve(chrome.runtime.lastError ? null : r));
+        });
+        if (res?.success && res.data) {
+          return {
+            score: res.data.status === "toxic" ? 0.85 : 0.1,
+            isToxic: res.data.status === "toxic",
+            reason: res.data.reason || "AI",
+            suggestion: res.data.rephrase_suggestion || text
+          };
+        }
+      } catch {}
+    }
+    // On-device fallback
+    const score = localToxicityScore(text);
+    return {
+      score,
+      isToxic: score >= CFG.toxicityThreshold,
+      reason: score >= CFG.toxicityThreshold ? "Abusive language detected" : "safe",
+      suggestion: localRephrase(text)
+    };
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+   *  NSFW IMAGE CLASSIFICATION  (via offscreen WASM worker)
+   * ══════════════════════════════════════════════════════════════ */
   function resolveUrl(rawUrl) {
     if (!rawUrl) return "";
-    try {
-      return new URL(rawUrl, window.location.href).href;
-    } catch {
-      if (rawUrl.startsWith("//")) return window.location.protocol + rawUrl;
-      return rawUrl;
+    try { return new URL(rawUrl, window.location.href).href; }
+    catch { return rawUrl.startsWith("//") ? window.location.protocol + rawUrl : rawUrl; }
+  }
+
+  async function classifyImage(url) {
+    return new Promise(resolve => {
+      chrome.runtime.sendMessage({type:"CLASSIFY_IMAGE", url, threshold: CFG.nsfwThreshold}, res =>
+        resolve(chrome.runtime.lastError ? {success:false} : (res || {success:false}))
+      );
+    });
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+   *  JOB PROCESSOR
+   * ══════════════════════════════════════════════════════════════ */
+  async function processJob(job) {
+    if (!document.body.contains(job.element)) return;
+
+    if (job.type === "toxicity") {
+      if (!CFG.toxicityEnabled) return;
+      const result = await analyzeToxicity(job.text);
+      cacheSet(job.hash, {type:"toxicity", score:result.score, isToxic:result.isToxic, suggestion:result.suggestion});
+      STATS.postsScanned++;
+      STATS.toxicitySum += result.score;
+      if (result.isToxic) {
+        STATS.toxicCount++;
+        applyBlurPost(job.element, result.score, result.suggestion);
+      }
+      saveStats();
+
+    } else if (job.type === "nsfw") {
+      if (!CFG.nsfwEnabled) return;
+      const res = await classifyImage(job.url);
+      if (res?.success && res.result) {
+        cacheSet(job.hash, {type:"nsfw", isUnsafe:res.result.isUnsafe, score:res.result.confidence});
+        if (res.result.isUnsafe) {
+          STATS.nsfwCount++;
+          applyBlurImage(job.element, res.result);
+          saveStats();
+        }
+      }
+
+    } else if (job.type === "semantic") {
+      if (!CFG.semanticEnabled || CFG.semanticTopics.length === 0) return;
+      const score = localSemanticScore(job.text, CFG.semanticTopics);
+      cacheSet(job.hash, {type:"semantic", score, matches:score >= CFG.semanticThreshold});
+      if (score >= CFG.semanticThreshold) {
+        STATS.semanticMatches++;
+        applyBlurPost(job.element, score, null, "semantic");
+        saveStats();
+      }
     }
   }
 
-  /**
-   * Apply blur filter and create click-to-reveal badge
-   */
-  function applyBlurOverlay(img, result) {
-    if (img.dataset.nsfwBlurred === "true") return;
-    img.dataset.nsfwBlurred = "true";
+  function applyResult(el, type, cached) {
+    if (!el || !document.body.contains(el)) return;
+    if (type === "toxicity" && cached.isToxic) applyBlurPost(el, cached.score, cached.suggestion);
+    else if (type === "nsfw" && cached.isUnsafe) applyBlurImage(el, {confidence:cached.score});
+    else if (type === "semantic" && cached.matches) applyBlurPost(el, cached.score, null, "semantic");
+  }
 
-    // Directly apply inline style blur to guarantee override
-    img.style.setProperty("filter", "blur(28px) brightness(0.8)", "important");
-    img.style.setProperty("transition", "filter 0.25s cubic-bezier(0.4, 0, 0.2, 1)", "important");
-    img.classList.add("nsfw-shield-blurred");
+  /* ══════════════════════════════════════════════════════════════
+   *  SEMANTIC SCORE (Thematic Semantic Clusters + Word Similarity)
+   * ══════════════════════════════════════════════════════════════ */
+  const THEMATIC_CLUSTERS = {
+    "politics": ["politic", "election", "senate", "congress", "president", "bipartisan", "democrat", "republican", "parliament", "lobby", "minister", "campaign", "ballot", "legislation", "governance"],
+    "crypto": ["crypto", "bitcoin", "ethereum", "solana", "token", "presale", "airdrop", "arbitrage", "blockchain", "binance", "uniswap", "pump", "wallet", "nft"],
+    "crypto scams": ["crypto", "pump", "presale", "arbitrage", "100x", "gem", "whitelist", "guaranteed", "roi", "exploit", "smart contract"],
+    "hate speech": ["slur", "harass", "attack", "scum", "repulsive", "filth", "vermin", "worthless", "subhuman"],
+    "violence": ["assault", "murder", "kill", "threat", "weapon", "blood", "execute", "injure"]
+  };
 
-    // Check if wrapper already exists
-    let wrapper = img.closest(".nsfw-shield-container");
-    if (!wrapper) {
-      let targetElement = img;
-      if (img.parentElement && img.parentElement.tagName === "PICTURE") {
-        targetElement = img.parentElement;
+  function localSemanticScore(text, topics) {
+    const lower = text.toLowerCase();
+    let maxScore = 0;
+
+    for (const rawTopic of topics) {
+      const topic = rawTopic.trim().toLowerCase();
+      if (!topic) continue;
+
+      if (lower.includes(topic)) {
+        maxScore = Math.max(maxScore, 0.90);
+        continue;
       }
-      const parent = targetElement.parentElement;
-      if (!parent) return;
 
-      wrapper = document.createElement("div");
-      wrapper.className = "nsfw-shield-container";
-      wrapper.style.position = "relative";
-      const compDisplay = window.getComputedStyle(targetElement).display;
-      wrapper.style.display = compDisplay === "inline" ? "inline-block" : compDisplay;
+      let relatedTerms = [];
+      for (const [key, cluster] of Object.entries(THEMATIC_CLUSTERS)) {
+        if (topic.includes(key) || key.includes(topic)) {
+          relatedTerms.push(...cluster);
+        }
+      }
 
-      parent.insertBefore(wrapper, targetElement);
-      wrapper.appendChild(targetElement);
+      if (relatedTerms.length > 0) {
+        let matchCount = 0;
+        for (const term of relatedTerms) {
+          if (lower.includes(term)) matchCount++;
+        }
+        if (matchCount >= 2) {
+          maxScore = Math.max(maxScore, 0.85);
+        } else if (matchCount === 1) {
+          maxScore = Math.max(maxScore, 0.65);
+        }
+      }
+
+      const words = topic.split(/\s+/).filter(w => w.length >= 3);
+      if (words.length > 0) {
+        let matched = 0;
+        for (const w of words) {
+          if (lower.includes(w)) matched++;
+        }
+        const ratio = matched / words.length;
+        if (ratio >= 0.5) maxScore = Math.max(maxScore, ratio * 0.8);
+      }
     }
 
-    // Create sleek, discreet unblur toggle (zero explicit labels/percentages)
-    const overlayBtn = document.createElement("button");
-    overlayBtn.type = "button";
-    overlayBtn.className = "blur-it-toggle-btn";
-    overlayBtn.setAttribute("aria-label", "Toggle image visibility");
-    
-    const eyeOpenSvg = `<svg class="blur-it-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
-    const eyeClosedSvg = `<svg class="blur-it-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+    return maxScore;
+  }
 
-    overlayBtn.innerHTML = `${eyeOpenSvg}<span class="blur-it-btn-text">Show</span>`;
+  /* ══════════════════════════════════════════════════════════════
+   *  RENDERER — Inline Line Blur/Reveal UI
+   * ══════════════════════════════════════════════════════════════ */
+  function applyBlurPost(el, score, suggestion, type = "toxicity") {
+    if (el.dataset.aimiBlurred === "true") return;
+    el.dataset.aimiBlurred = "true";
 
-    overlayBtn.addEventListener("click", (e) => {
+    // If el itself is an inline/leaf text container
+    if (el.matches?.("span.selectable-text, span._a9zs, div._amid, p, li") || (el.matches?.("[dir='auto']") && !el.querySelector("[dir='auto']"))) {
+      blurElement(el);
+      return;
+    }
+
+    // Find candidate leaf text elements (WhatsApp, Instagram, Search, Feeds)
+    const rawCandidates = Array.from(el.querySelectorAll(
+      "span.selectable-text, span._a9zs, div._amid, div[dir='auto'], span[dir='auto'], li, p, .VwiC3b, [data-aimi-text], .post-body, .tweet-text, .copyable-text"
+    ));
+    // Filter to leaf nodes (don't pick parent wrappers if children are candidates)
+    const candidateLines = rawCandidates.filter(c => !rawCandidates.some(other => other !== c && c.contains(other)));
+
+    const targets = [];
+    if (candidateLines.length > 0) {
+      candidateLines.forEach(line => {
+        const t = line.innerText?.trim() || "";
+        if (t.length >= 2 && localToxicityScore(t) >= CFG.toxicityThreshold) {
+          targets.push(line);
+        }
+      });
+      // Fallback: if no individual leaf triggered on its own, pick highest scoring candidate
+      if (targets.length === 0) {
+        let highest = null;
+        let maxS = 0;
+        candidateLines.forEach(line => {
+          const t = line.innerText?.trim() || "";
+          const s = localToxicityScore(t);
+          if (s > maxS) { maxS = s; highest = line; }
+        });
+        if (highest && maxS > 0) targets.push(highest);
+        else targets.push(candidateLines[0]);
+      }
+    }
+
+    if (targets.length === 0) {
+      targets.push(el);
+    }
+
+    targets.forEach(target => blurElement(target));
+  }
+
+  function blurElement(target) {
+    if (!target || target.classList.contains("aimi-line-blurred") || target.closest(".aimi-line-blurred")) return;
+    target.classList.add("aimi-line-blurred");
+    target.setAttribute("title", "Sensitive content · Click to reveal");
+
+    const revealHandler = (e) => {
       e.stopPropagation();
       e.preventDefault();
-      const currentFilter = img.style.getPropertyValue("filter");
-      if (currentFilter && currentFilter.includes("blur")) {
-        // Unblur
-        img.style.setProperty("filter", "none", "important");
-        img.classList.remove("nsfw-shield-blurred");
-        overlayBtn.classList.add("blur-it-revealed");
-        overlayBtn.innerHTML = `${eyeClosedSvg}<span class="blur-it-btn-text">Hide</span>`;
+      target.classList.remove("aimi-line-blurred");
+      target.removeAttribute("title");
+      target.removeEventListener("click", revealHandler, true);
+    };
+
+    target.addEventListener("click", revealHandler, true);
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+   *  RENDERER — NSFW Image Blur/Reveal
+   * ══════════════════════════════════════════════════════════════ */
+  function applyBlurImage(img, result) {
+    if (img.dataset.aimiNsfwBlurred === "true") return;
+    img.dataset.aimiNsfwBlurred = "true";
+    img.style.setProperty("filter", "blur(28px) brightness(0.8)", "important");
+    img.style.setProperty("transition", "filter 0.25s ease", "important");
+    img.classList.add("aimi-nsfw-blurred");
+
+    let wrapper = img.closest(".aimi-nsfw-container");
+    if (!wrapper) {
+      const targetEl = img.parentElement?.tagName === "PICTURE" ? img.parentElement : img;
+      const parent = targetEl.parentElement;
+      if (!parent) return;
+      wrapper = document.createElement("div");
+      wrapper.className = "aimi-nsfw-container";
+      wrapper.style.cssText = "position:relative;display:inline-block;border-radius:6px;overflow:hidden;";
+      parent.insertBefore(wrapper, targetEl);
+      wrapper.appendChild(targetEl);
+    }
+
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "aimi-nsfw-toggle";
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg> Show`;
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation(); e.preventDefault();
+      const blurred = img.style.getPropertyValue("filter")?.includes("blur");
+      if (blurred) {
+        img.style.setProperty("filter","none","important");
+        img.classList.remove("aimi-nsfw-blurred");
+        btn.classList.add("aimi-revealed");
+        btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg> Hide`;
       } else {
-        // Re-blur
-        img.style.setProperty("filter", "blur(28px) brightness(0.85)", "important");
-        img.classList.add("nsfw-shield-blurred");
-        overlayBtn.classList.remove("blur-it-revealed");
-        overlayBtn.innerHTML = `${eyeOpenSvg}<span class="blur-it-btn-text">Show</span>`;
+        img.style.setProperty("filter","blur(28px) brightness(0.85)","important");
+        img.classList.add("aimi-nsfw-blurred");
+        btn.classList.remove("aimi-revealed");
+        btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg> Show`;
+      }
+    });
+    wrapper.appendChild(btn);
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+   *  CONTENT DETECTION — Post & Chat Feed Pipeline
+   * ══════════════════════════════════════════════════════════════ */
+  const POST_SELECTORS = [
+    // Social media posts & tweets
+    "article", "[data-testid='tweet']", "[data-testid='cellInnerDiv']",
+    ".feed-shared-update-v2", ".x5yr21d",
+    "[data-aimi-post]", ".post-card", ".aimi-post",
+    // WhatsApp Web chat messages & bubbles
+    "div.message-in", "div.message-out", "div.copyable-text", "div.focusable-list-item",
+    "div[data-id]", "span.selectable-text", "div._akbu", "div._amj_", "span._ao3e",
+    // Instagram (feed posts, comments, reels comments, DMs)
+    "div._a9ym", "div._a9zr", "span._a9zs", "div._amid", "div[role='row']",
+    "ul._a9z6 > li", "div._aa34", "div.x1lliihq", "div.x78zum5.xdt5ytf",
+    "div.html-div.xdj266r.x11i5rnm", "div[dir='auto']",
+    // Search Engines (Google Search, AI Overview, Bing, Yahoo)
+    "div.g", ".MjjYud", ".tF2Cxc", "div[data-sokoban-container]", "li.b_algo",
+    "div.cUnQKe", "div[data-attrid]", "div.xpdopen", "div.g-blk", "div.ULSxyf", "div.wDYxhc", "div.M8OgIe", "div.KDCVub",
+    // Social / Forums / Comments
+    "shreddit-post", "shreddit-comment", "[role='article']", ".comment", ".post", ".search-result"
+  ];
+
+  const processedPosts = new WeakSet();
+  let postObserver = null;
+  let visObserver = null;
+
+  function extractPostText(el) {
+    return (el.innerText || "").slice(0, 2500).trim();
+  }
+
+  function schedulePost(el, priority) {
+    if (processedPosts.has(el)) return;
+    if (el.classList.contains("aimi-line-blurred") || el.closest?.(".aimi-line-blurred") || el.querySelector?.(".aimi-line-blurred")) return;
+    processedPosts.add(el);
+
+    const text = extractPostText(el);
+    if (!text || text.length < 2) return;
+
+    const hash = simpleHash(text);
+    const id = hash + "_toxicity";
+
+    enqueue({ id, type:"toxicity", element:el, text, hash, priority });
+
+    if (CFG.semanticEnabled && CFG.semanticTopics.length > 0) {
+      enqueue({ id:hash+"_semantic", type:"semantic", element:el, text, hash:hash+"_sem", priority });
+    }
+  }
+
+  function initFeedPipeline() {
+    // IntersectionObserver — HIGH for visible, LOW for near-visible
+    visObserver = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!processedPosts.has(e.target)) {
+          schedulePost(e.target, e.intersectionRatio > 0.1 ? "HIGH" : "LOW");
+        }
+      }
+    }, { rootMargin: "250px 0px", threshold: [0, 0.1, 0.5] });
+
+    // MutationObserver — detect new post and chat message containers
+    postObserver = new MutationObserver((mutations) => {
+      for (const mut of mutations) {
+        for (const node of mut.addedNodes) {
+          if (node.nodeType !== Node.ELEMENT_NODE) continue;
+          for (const sel of POST_SELECTORS) {
+            if (node.matches?.(sel)) {
+              visObserver.observe(node);
+              schedulePost(node, "HIGH");
+            }
+            node.querySelectorAll?.(sel).forEach(el => {
+              visObserver.observe(el);
+              schedulePost(el, "HIGH");
+            });
+          }
+        }
       }
     });
 
-    wrapper.appendChild(overlayBtn);
-  }
+    postObserver.observe(document.body, {childList:true, subtree:true});
 
-  /**
-   * Classify a single image element
-   */
-  async function processImage(img) {
-    if (!isEnabled) return;
-
-    // Check if the image has finished loading
-    if (!img.complete || (img.naturalWidth === 0 && img.width === 0)) {
-      img.addEventListener("load", () => processImage(img), { once: true });
-      return;
-    }
-
-    const w = img.naturalWidth || img.width;
-    const h = img.naturalHeight || img.height;
-    if (w < CONFIG.minSize || h < CONFIG.minSize) return;
-
-    const rawUrl = img.currentSrc || img.src;
-    if (!rawUrl) return;
-
-    const fullUrl = resolveUrl(rawUrl);
-    if (!fullUrl) return;
-
-    if (img.dataset.nsfwScanned === "true" && img.dataset.lastScannedUrl === fullUrl) return;
-
-    // Check cache
-    if (processedCache.has(fullUrl)) {
-      const cached = processedCache.get(fullUrl);
-      img.dataset.nsfwScanned = "true";
-      img.dataset.lastScannedUrl = fullUrl;
-      if (cached.isUnsafe) {
-        applyBlurOverlay(img, cached);
-      }
-      return;
-    }
-
-    img.dataset.nsfwScanned = "true";
-    img.dataset.lastScannedUrl = fullUrl;
-
-    try {
-      const response = await new Promise((resolve) => {
-        chrome.runtime.sendMessage(
-          {
-            type: "CLASSIFY_IMAGE",
-            url: fullUrl,
-            threshold: sensitivityThreshold
-          },
-          (res) => {
-            if (chrome.runtime.lastError) {
-              resolve({ success: false, error: chrome.runtime.lastError.message });
-            } else {
-              resolve(res || { success: false });
-            }
-          }
-        );
+    // Initial scan
+    for (const sel of POST_SELECTORS) {
+      document.querySelectorAll(sel).forEach(el => {
+        visObserver.observe(el);
+        schedulePost(el, "HIGH");
       });
+    }
 
-      if (response && response.success && response.result) {
-        const result = response.result;
-        processedCache.set(fullUrl, result);
-
-        // Update extension statistics
-        if (chrome.storage && chrome.storage.local) {
-          chrome.storage.local.get(["scannedCount", "blurredCount"], (d) => {
-            chrome.storage.local.set({
-              scannedCount: (d.scannedCount || 0) + 1,
-              blurredCount: (d.blurredCount || 0) + (result.isUnsafe ? 1 : 0)
-            });
-          });
-        }
-
-        console.debug(`[NSFW Shield] ${result.topClass.toUpperCase()} (${Math.round(result.confidence * 100)}%)`, fullUrl);
-
-        if (result.isUnsafe) {
-          console.warn(`[NSFW Shield] ⚠️ Blurring image: ${result.topClass.toUpperCase()} (${Math.round(result.confidence * 100)}%)`, fullUrl);
-          applyBlurOverlay(img, result);
+    // Periodic sweep every 1.2s for virtualized scrolling lists (WhatsApp Web & Instagram)
+    setInterval(() => {
+      if (!CFG.toxicityEnabled && !CFG.semanticEnabled) return;
+      for (const sel of POST_SELECTORS) {
+        const items = document.querySelectorAll(sel);
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (!processedPosts.has(item) && !item.classList.contains("aimi-line-blurred") && !item.querySelector(".aimi-line-blurred")) {
+            schedulePost(item, "HIGH");
+          }
         }
       }
-    } catch (err) {
-      console.debug("[NSFW Shield] Image classification error:", err);
-    }
+    }, 1200);
   }
 
-  // IntersectionObserver to prioritize visible images
-  const visibilityObserver = new IntersectionObserver((entries, observer) => {
-    for (const entry of entries) {
-      if (entry.isIntersecting) {
-        processImage(entry.target);
-        observer.unobserve(entry.target);
-      }
+  /* ══════════════════════════════════════════════════════════════
+   *  NSFW IMAGE PIPELINE
+   * ══════════════════════════════════════════════════════════════ */
+  const processedImgs = new WeakSet();
+  const imgObserver = new IntersectionObserver((entries, obs) => {
+    for (const e of entries) {
+      if (e.isIntersecting) { processImageEl(e.target); obs.unobserve(e.target); }
     }
   }, { rootMargin: "300px" });
 
-  function observeImage(img) {
-    if (img.dataset.nsfwObserved === "true") return;
-    img.dataset.nsfwObserved = "true";
-    visibilityObserver.observe(img);
-
-    if (img.complete && (img.naturalWidth > 0 || img.width > 0)) {
-      processImage(img);
-    } else {
-      img.addEventListener("load", () => processImage(img), { once: true });
+  function processImageEl(img) {
+    if (!CFG.nsfwEnabled) return;
+    if (processedImgs.has(img)) return;
+    if (!img.complete || (img.naturalWidth === 0 && img.width === 0)) {
+      img.addEventListener("load", () => processImageEl(img), {once:true}); return;
     }
+    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+    if (w < 40 || h < 40) return;
+    const rawUrl = img.currentSrc || img.src;
+    if (!rawUrl) return;
+    const url = resolveUrl(rawUrl);
+    if (!url) return;
+
+    processedImgs.add(img);
+    const hash = simpleHash(url);
+    const cached = cacheGet(hash + "_nsfw");
+    if (cached) { if(cached.isUnsafe) applyBlurImage(img, {confidence:cached.score}); return; }
+
+    enqueue({id:hash+"_nsfw", type:"nsfw", element:img, url, hash:hash+"_nsfw", priority:"LOW"});
   }
 
-  // MutationObserver to watch for dynamic images and lazy loading src changes
-  const domObserver = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      if (mutation.type === "childList") {
-        for (const node of mutation.addedNodes) {
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            if (node.tagName === "IMG") {
-              observeImage(node);
-            } else if (node.querySelectorAll) {
-              node.querySelectorAll("img").forEach(observeImage);
-            }
-          }
+  function observeImage(img) {
+    if (img.dataset.aimiImgObs === "true") return;
+    img.dataset.aimiImgObs = "true";
+    imgObserver.observe(img);
+    if (img.complete && (img.naturalWidth > 0 || img.width > 0)) processImageEl(img);
+  }
+
+  const imgMutObs = new MutationObserver((mutations) => {
+    for (const mut of mutations) {
+      if (mut.type === "childList") {
+        for (const n of mut.addedNodes) {
+          if (n.nodeType !== Node.ELEMENT_NODE) continue;
+          if (n.tagName === "IMG") observeImage(n);
+          n.querySelectorAll?.("img").forEach(observeImage);
         }
-      } else if (mutation.type === "attributes" && mutation.target.tagName === "IMG") {
-        const img = mutation.target;
-        const currentUrl = resolveUrl(img.currentSrc || img.src);
-        if (img.dataset.lastScannedUrl !== currentUrl) {
-          img.dataset.nsfwScanned = "false";
-          observeImage(img);
-        }
+      } else if (mut.type === "attributes" && mut.target.tagName === "IMG") {
+        const img = mut.target;
+        const url = resolveUrl(img.currentSrc || img.src);
+        if (img.dataset.lastUrl !== url) { img.dataset.lastUrl = url; img.dataset.aimiImgObs = "false"; observeImage(img); }
       }
     }
   });
 
-  function init() {
-    document.documentElement.dataset.nsfwShieldActive = "true";
-    console.log("[NSFW Shield] Monitoring active on:", window.location.href);
-
-    // Sync settings
-    if (chrome.storage && chrome.storage.sync) {
-      chrome.storage.sync.get(["enabled", "threshold"], (data) => {
-        if (typeof data.enabled === "boolean") isEnabled = data.enabled;
-        if (typeof data.threshold === "number") sensitivityThreshold = data.threshold;
-      });
-
-      chrome.storage.onChanged.addListener((changes, area) => {
-        if (area === "sync") {
-          if (changes.enabled) isEnabled = changes.enabled.newValue;
-          if (changes.threshold) sensitivityThreshold = changes.threshold.newValue;
-        }
-      });
-    }
-
-    // Initial pass over existing images
-    document.querySelectorAll("img").forEach(observeImage);
-
-    // Observe body for dynamic image insertions
-    domObserver.observe(document.body || document.documentElement, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["src", "srcset"]
-    });
-
-    // Initialize Pre-Draft Message Vibe Checker
-    initVibeChecker();
-  }
-
-  /* ========================================================
-   * Pre-Draft Message Vibe Checker Module (BlurIt / CYHI)
-   * ======================================================== */
-  let vibeCheckEnabled = true;
+  /* ══════════════════════════════════════════════════════════════
+   *  PRE-POST COMPOSER CHECKER (Professional, unobtrusive)
+   * ══════════════════════════════════════════════════════════════ */
   let activeDraftInput = null;
-
-  const FILLER_SWEAR_WORDS = [
-    "mc", "bc", "b.c.", "m.c.", "mkc", "bsdk", "bkl", "bck", "madarchod", 
-    "behenchod", "bhenchod", "bhosadike", "bhosdike", "bhosdiwale", "cunt", "fck", "stfu"
-  ];
-
-  const ADJECTIVE_SWEAR_WORDS = [
-    "chutiya", "chutiye", "ch**iya", "c-tiya", "bakchodi", "saala", "saale", "kutta", "kutte", 
-    "harami", "haraami", "kamina", "kaminey", "kamine", "randi", "bhadwa", "bhadwe", "gandu", "gndu", 
-    "lodu", "ldu", "laude", "lnd", "lund", "chut", "gaand", "bhosdi", "tatte", "jhaatu", "chod", 
-    "chodo", "chodna", "chudai", "chudwa", "gaandmasti", "dalaal", "suar", "suar ki aulad", 
-    "namak haram", "haraamzada", "bewakoof", "gadha", "ullu", "ullu ke patthe", "dimaag kharab", 
-    "pagal", "dhed shana", "chaprasi", "andhe", "bakwas", "chup kar", "aukaat", "aukat", "nikal", 
-    "chal nikal", "bhad me ja", "mar ja", "jahil", "nirlajj", 
-    "fuck", "fucking", "fucked", "fucker", "shit", "bitch", "asshole", "ass", "moron", "idiot", 
-    "retard", "scumbag", "dickhead", "bastard",
-    "kutte ki zat", "कुत्ते की ज़ात", "suar ki zat", "सूअर की ज़ात", "सूअर की औलाद",
-    "gadhe ki aulad", "गधे की औलाद", "gadhe ki zat", "गधे की ज़ात", "bandar ki aulad", "बंदर की औलाद", 
-    "bandar ki zat", "बंदर की ज़ात", "bhains ki aulad", "भैंस की औलाद", "bhains ki zat", "भैंस की ज़ात", 
-    "ullu ki zat", "उल्लू की ज़ात", "lomdi ki aulad", "लोमड़ी की औलाद", 
-    "lomdi ki zat", "लोमड़ी की ज़ात", "bhed ki aulad", "भेड़ की औलाद", "bhed ki zat", "भेड़ की ज़ात", 
-    "bakri ki aulad", "बकरी की औलाद", "bakri ki zat", "बकरी की ज़ात", "billi ki aulad", "बिल्ली की औलाद", 
-    "billi ki zat", "बिल्ली की ज़ात", "mendhak ki aulad", "मेंढक की औलाद", "mendhak ki zat", "मेंढक की ज़ात", 
-    "badir", "बदीर", "badirchand", "बदीरचंद", "bakland", "बकलैंड", "बकलंड", "bhandwa", "भंडवा", 
-    "भड़वा", "chinaal", "चिनाल", "छनाल", "चूतिया", "चुतिया", "ghasti", "घसटी", "घसति", "ghassad", 
-    "घसड़", "घस्सड़", "हरामी", "haram zada", "हरामज़ादा", "हरामजादा", "hijda", "हिजड़ा", "hijra", 
-    "tatti", "टट्टी", "चोद", "land", "लंड", "lode", "लोडे", "takke", "टक्के", "chakka", "छक्का", 
-    "faggot", "टट्टे", "raand", "रांड", "randhwa", "रंढवा", "jigolo", "जिगोलो", "रंडी", 
-    "चूत", "bund", "बंड", "गांडू", "gandi", "गांडी", "bhosdi wala", "भोसड़ी वाला", 
-    "bhonsri wala", "भोंसड़ी वाला", "bhosri wala", "भोसरी वाला", "boobley", "बूबले", "chuchi", "चुची", 
-    "chuuche", "चूचे", "chuchiyan", "चूचियां", "chut marike", "चूत मार के", "land marike", "लंड मार के", 
-    "gand mari ke", "गांड मारी के", "chodu", "चोदू", "lavda", "लौड़ा", "lawda", "लौंडा", "loda", "लोडा", 
-    "muth marna", "मुठ मारना", "muthi", "मुठी", "mutthal", "मुठल", "baable", "बाबले", "bur", "बुर", 
-    "चोदना", "chudna", "चुदना", "chud", "चुद", "buuble", "भड़वे", "bhadwon", "भड़वों", 
-    "bhadwi", "भड़वी", "bhadwapanti", "भड़वापंती", "chodela", "चोदेला", "marana", "मारना", "marani", "मारनी", 
-    "marane", "मारने", "gandphatu", "गांडफटू", "gandphati", "गांडफटी", "gandphata", "गांडफटा", "gandphaton", 
-    "गांडफटों", "गांडमस्ती", "gand marna", "गांड मारना", "gand maru", "गांड मारू", "gand mari", 
-    "गांड मारी", "gand marana", "गांड माराना", "jhaant", "झाँट", "gand phatu", "गांड फटू", "gand phati", "गांड फटी", 
-    "gand phata", "गांड फटा", "gand phaton", "गांड फटों", "gaand masti", "गांड मस्ती", "gandmarna", "गांडमरना", 
-    "gandmaru", "गांडमरू", "gandmarana", "गांडमराना", "gandmari", "गांडमारी", "randibazar", "रंडीबाज़ार", 
-    "chodo", "चोदो", "chodi", "चोदी", "chodne", "चोदने", "chodva", "चोदवा", "chudo", "चुदो", "chudi", "चुदी", 
-    "chudne", "चुदने", "chudva", "चुदवा", "chodai", "चोदाई", "chuda", "चुदा", "chudai", "चुदाई", "chudvana", 
-    "चुदवाना", "haramia", "हरामिया", "haramzada", "haramzadi", "हरामज़ादी", "haramkhor", "हरामख़ोर", "kamini", 
-    "कमीनी", "bhosdi", "भोसड़ी", "bhosdike", "भोसड़ीके", "bhandi", "भंडी", "rand", "randwa", 
-    "रांडवा", "randibazaar", "रांडिबाजार", "hijade", "हिजड़े", "gandu", "गंडू", "लवड़ा", "lundwa", "लंडवा", 
-    "chutmar", "चूतमार", "chutiyapa", "चूतियापा"
-  ];
-
-  const EUPHEMISTIC_THREATS = [
-    "send you to heaven", "hunt you down", "will end you", "dig a grave", "put you in a body bag",
-    "sleep with the fishes", "put you in the ground", "send you to god", "meet your maker", 
-    "know where you live", "i will kill you", "slit your throat", "watch your back", "die in a fire"
-  ];
-
-  const LEET_MAP = {
-    "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "@": "a", "$": "s", "!": "i"
-  };
-
-  const REPHRASE_DICTIONARY = {
-    "idiot": "misguided person",
-    "idiots": "those who disagree",
-    "moron": "misinformed person",
-    "morons": "misinformed people",
-    "stupid": "unhelpful",
-    "hate": "strongly disagree with",
-    "shut up": "let's pause for a moment",
-    "chup kar": "let's pause for a moment",
-    "fuck off": "please give me space",
-    "fuck you": "I strongly disagree with you",
-    "fucking": "extremely",
-    "shit": "subpar",
-    "crap": "low quality",
-    "asshole": "unreasonable person",
-    "chutiya": "confused person",
-    "chutiye": "confused person",
-    "saala": "friend",
-    "saale": "friend",
-    "gandu": "fellow",
-    "bitch": "person",
-    "bastard": "individual",
-    "bewakoof": "uninformed person",
-    "gadha": "stubborn one",
-    "ullu": "friend",
-    "bakwas": "unhelpful discussion",
-    "nikal": "please leave",
-    "chal nikal": "let's move on",
-    "suar": "unpleasant individual",
-    "pagal": "excited",
-    "aukaat": "capability",
-    "aukat": "capability",
-    "bhosdi wala": "friend",
-    "bhosdike": "friend",
-    "kaminey": "friend",
-    "kamine": "friend",
-    "चूतिया": "confused person",
-    "हरामी": "mischievous person"
-  };
-
-  function normalizeLeetspeak(text) {
-    if (!text) return "";
-    let normalized = "";
-    for (const char of text) {
-      normalized += LEET_MAP[char] || char;
-    }
-    normalized = normalized
-      .replace(/f[\*_\-\.]+(u?)c?k/gi, "fuck")
-      .replace(/f[\*_\-\.]+(u?)c?king/gi, "fucking")
-      .replace(/sh[\*_\-\.]+(i?)t/gi, "shit")
-      .replace(/s[\*_\-\.]+(h?)i?t/gi, "shit")
-      .replace(/b[\*_\-\.]+(i?)t?ch/gi, "bitch")
-      .replace(/a[\*_\-\.]+(s?)hole/gi, "asshole")
-      .replace(/b[\*_\-\.]+sdk/gi, "bsdk")
-      .replace(/m[\*_\-\.]+c/gi, "mc")
-      .replace(/b[\*_\-\.]+c/gi, "bc");
-    return normalized;
-  }
-
-  function escapeRegex(str) {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
-
-  function buildCompiledWord(word, isFiller = false) {
-    const isDev = /[\u0900-\u097F]/.test(word);
-    const escaped = escapeRegex(word);
-    let testRegex, replaceRegex;
-    if (isDev) {
-      testRegex = new RegExp("(?<=^|[^\\p{L}\\p{N}])" + escaped + "(?=$|[^\\p{L}\\p{N}])", "ui");
-      replaceRegex = new RegExp("(?<=^|[^\\p{L}\\p{N}])" + escaped + "(?=$|[^\\p{L}\\p{N}])", "gui");
-    } else {
-      const prefix = /^\w/.test(word) ? "\\b" : "(?<=^|\\s)";
-      const suffix = /\w$/.test(word) ? "\\b" : "(?=$|\\s)";
-      testRegex = new RegExp(prefix + escaped + suffix, "i");
-      replaceRegex = new RegExp(prefix + escaped + suffix, "gi");
-    }
-    return { word, isFiller, testRegex, replaceRegex };
-  }
-
-  // Precompile word patterns once for sub-millisecond evaluation speed
-  const COMPILED_SWEARS = [
-    ...FILLER_SWEAR_WORDS.map(w => buildCompiledWord(w, true)),
-    ...ADJECTIVE_SWEAR_WORDS.map(w => buildCompiledWord(w, false))
-  ].sort((a, b) => b.word.length - a.word.length);
-
-  function clientSideVibeAnalysis(rawText) {
-    const normalized = normalizeLeetspeak(rawText);
-    const lower = normalized.toLowerCase();
-
-    let toxicReason = null;
-    let isToxic = false;
-    let flaggedWords = [];
-
-    // 1. Check euphemistic threats
-    for (const threat of EUPHEMISTIC_THREATS) {
-      if (lower.includes(threat)) {
-        isToxic = true;
-        toxicReason = "Threat pattern detected";
-        flaggedWords.push(threat);
-        break;
-      }
-    }
-
-    // 2. High-performance check across compiled Hinglish, English, and Devanagari words
-    if (!isToxic) {
-      for (const item of COMPILED_SWEARS) {
-        if (item.testRegex.test(normalized)) {
-          isToxic = true;
-          toxicReason = item.isFiller ? "Profanity detected" : "Abusive / insulting language";
-          if (!flaggedWords.includes(item.word)) flaggedWords.push(item.word);
-        }
-      }
-    }
-
-    if (!isToxic) {
-      return { isToxic: false, reason: "safe", suggestion: rawText };
-    }
-
-    // Generate deterministic polite suggestion starting from normalized text
-    let suggestion = normalizeLeetspeak(rawText);
-
-    // Neutralize euphemistic threats
-    for (const threat of EUPHEMISTIC_THREATS) {
-      const reg = new RegExp(escapeRegex(threat), "gi");
-      suggestion = suggestion.replace(reg, "resolve our disagreement calmly");
-    }
-
-    // Apply polite dictionary replacements and asterisks in length-descending order
-    for (const item of COMPILED_SWEARS) {
-      if (item.testRegex.test(suggestion)) {
-        const replacement = item.isFiller
-          ? ""
-          : (REPHRASE_DICTIONARY[item.word.toLowerCase()] || REPHRASE_DICTIONARY[item.word] || "***");
-        suggestion = suggestion.replace(item.replaceRegex, replacement);
-      }
-    }
-
-    // Clean up spacing and orphaned commas
-    suggestion = suggestion
-      .replace(/\s*,\s*,+/g, ",")
-      .replace(/\s*,\s*/g, ", ")
-      .replace(/\s{2,}/g, " ")
-      .trim();
-
-    // If completely censored or empty, provide a constructive template
-    if (!suggestion || suggestion === "***" || suggestion.length < 3) {
-      suggestion = "I would like to offer constructive feedback on this.";
-    }
-
-    return {
-      isToxic: true,
-      reason: toxicReason,
-      flagged: flaggedWords,
-      suggestion: suggestion
-    };
-  }
-
-  async function analyzeDraftVibe(text) {
-    // 1. Try background worker bridge to local FastAPI server (bypasses page CSP)
-    if (chrome.runtime && chrome.runtime.sendMessage) {
-      try {
-        const bgRes = await new Promise((resolve) => {
-          chrome.runtime.sendMessage({ type: "CHECK_VIBE_BACKEND", text }, (response) => {
-            if (chrome.runtime.lastError) {
-              resolve(null);
-            } else {
-              resolve(response);
-            }
-          });
-        });
-
-        if (bgRes && bgRes.success && bgRes.data) {
-          const data = bgRes.data;
-          if (data.status === "toxic") {
-            return {
-              isToxic: true,
-              reason: data.reason || "Toxicity detected by AI",
-              suggestion: data.rephrase_suggestion || text
-            };
-          } else {
-            return { isToxic: false, reason: "safe", suggestion: text };
-          }
-        }
-      } catch {
-        // Continue to fallback
-      }
-    }
-
-    // 2. Direct local fetch attempt if standalone
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1000);
-
-      const res = await fetch("http://127.0.0.1:8000/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.status === "toxic") {
-          return {
-            isToxic: true,
-            reason: data.reason || "Toxicity detected by AI",
-            suggestion: data.rephrase_suggestion || text
-          };
-        } else {
-          return { isToxic: false, reason: "safe", suggestion: text };
-        }
-      }
-    } catch {
-      // Server not reachable — seamlessly use on-device engine
-    }
-
-    // 3. On-device deterministic analyzer fallback
-    return clientSideVibeAnalysis(text);
-  }
-
-  function showToast(message) {
-    const toast = document.createElement("div");
-    toast.className = "blur-it-toast";
-    toast.innerHTML = `
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-        <polyline points="22 4 12 14.01 9 11.01"></polyline>
-      </svg>
-      <span>${message}</span>
-    `;
-    document.body.appendChild(toast);
-    setTimeout(() => {
-      toast.style.transition = "opacity 0.3s ease, transform 0.3s ease";
-      toast.style.opacity = "0";
-      toast.style.transform = "translateY(8px)";
-      setTimeout(() => toast.remove(), 350);
-    }, 2800);
-  }
+  let _replacing = false;
+  let vibeDebounceTimer = null;
 
   function initVibeChecker() {
-    // Check if elements already injected
-    if (document.getElementById("blur-it-vibe-btn")) return;
+    if (document.getElementById("aimi-vibe-tooltip")) return;
 
-    // 1. Create floating Vibe Check pill
-    const vibeBtn = document.createElement("button");
-    vibeBtn.id = "blur-it-vibe-btn";
-    vibeBtn.type = "button";
-    vibeBtn.setAttribute("aria-label", "Check draft vibe and toxicity");
-    vibeBtn.innerHTML = `
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path>
-      </svg>
-      <span id="blur-it-vibe-btn-text">Vibe Check</span>
-    `;
-    document.body.appendChild(vibeBtn);
-
-    // 2. Create Suggestion Tooltip
     const tooltip = document.createElement("div");
-    tooltip.id = "blur-it-vibe-tooltip";
+    tooltip.id = "aimi-vibe-tooltip";
     tooltip.innerHTML = `
-      <div class="blur-it-vibe-header">
-        <div class="blur-it-vibe-title">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-            <line x1="12" y1="9" x2="12" y2="13"></line>
-            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-          </svg>
-          <span>Toxicity Detected</span>
+      <div class="aimi-tip-header">
+        <div class="aimi-tip-title">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          <span>Tone Advisory</span>
         </div>
-        <span class="blur-it-vibe-badge" id="blur-it-vibe-reason">Abusive</span>
+        <span class="aimi-tip-badge" id="aimi-reason-badge">Toxic</span>
       </div>
-      <div class="blur-it-vibe-body">
-        This draft may come across as toxic or inflammatory. Consider this constructive alternative:
-        <div class="blur-it-vibe-suggestion" id="blur-it-suggestion-text"></div>
+      <div class="aimi-tip-body">
+        This phrasing may be perceived as abrasive. Suggested alternative:
+        <div class="aimi-suggestion-box" id="aimi-suggestion-text"></div>
       </div>
-      <div class="blur-it-vibe-actions">
-        <button type="button" class="blur-it-btn-accept" id="blur-it-btn-replace">Replace Text</button>
-        <button type="button" class="blur-it-btn-ignore" id="blur-it-btn-dismiss">Ignore</button>
-      </div>
-    `;
+      <div class="aimi-tip-actions">
+        <button class="aimi-btn-replace" id="aimi-btn-replace" type="button">Replace Text</button>
+        <button class="aimi-btn-ignore" id="aimi-btn-ignore" type="button">Dismiss</button>
+      </div>`;
     document.body.appendChild(tooltip);
 
-    // Track active inputs reliably across focus, typing, and clicks
-    const updateActiveInput = (target) => {
-      if (!target) return;
-      const isInput = target.tagName === "TEXTAREA" ||
-                      (target.tagName === "INPUT" && ["text", "search", ""].includes(target.type)) ||
-                      target.isContentEditable;
-      if (isInput) {
-        activeDraftInput = target;
-        vibeBtn.classList.remove("blur-it-hidden");
-      }
-    };
-
-    document.addEventListener("focusin", (e) => updateActiveInput(e.target), true);
-    document.addEventListener("input", (e) => updateActiveInput(e.target), true);
-    document.addEventListener("pointerup", (e) => updateActiveInput(e.target), true);
-
-    // Sync settings for vibe check / text filter
-    if (chrome.storage && chrome.storage.sync) {
-      chrome.storage.sync.get(["vibeCheckEnabled", "textFilterEnabled"], (data) => {
-        const isVibe = data.textFilterEnabled !== undefined
-          ? data.textFilterEnabled
-          : (data.vibeCheckEnabled !== undefined ? data.vibeCheckEnabled : true);
-        vibeCheckEnabled = isVibe;
-        if (!vibeCheckEnabled) vibeBtn.classList.add("blur-it-hidden");
-      });
-      chrome.storage.onChanged.addListener((changes, area) => {
-        if (area === "sync" && (changes.vibeCheckEnabled || changes.textFilterEnabled)) {
-          const newVal = changes.textFilterEnabled ? changes.textFilterEnabled.newValue : changes.vibeCheckEnabled.newValue;
-          vibeCheckEnabled = newVal;
-          if (vibeCheckEnabled) {
-            vibeBtn.classList.remove("blur-it-hidden");
-          } else {
-            vibeBtn.classList.add("blur-it-hidden");
-            tooltip.style.display = "none";
-          }
-        }
-      });
-    }
-
-    // Position & Show Tooltip
-    function showVibeTooltip(result, targetElement) {
-      const reasonEl = document.getElementById("blur-it-vibe-reason");
-      const suggestionEl = document.getElementById("blur-it-suggestion-text");
-
-      reasonEl.textContent = result.reason || "Toxic Tone";
-      suggestionEl.textContent = `"${result.suggestion}"`;
-
+    function showTooltip(result, inputEl) {
+      activeDraftInput = inputEl;
+      document.getElementById("aimi-reason-badge").textContent = result.reason || "Toxic Tone";
+      document.getElementById("aimi-suggestion-text").textContent = `"${result.suggestion}"`;
       tooltip.style.display = "block";
-
-      const rect = targetElement.getBoundingClientRect();
-      const tooltipRect = tooltip.getBoundingClientRect();
-
-      // Above or below target
-      if (rect.bottom + tooltipRect.height + 15 < window.innerHeight) {
-        tooltip.style.top = (window.scrollY + rect.bottom + 8) + "px";
-      } else {
-        tooltip.style.top = Math.max(10, window.scrollY + rect.top - tooltipRect.height - 8) + "px";
-      }
-
-      // Horizontal clamp
+      const rect = inputEl.getBoundingClientRect();
+      const tipRect = tooltip.getBoundingClientRect();
+      const top = rect.top - tipRect.height - 10 > 10
+        ? window.scrollY + rect.top - tipRect.height - 10
+        : window.scrollY + rect.bottom + 10;
       let left = window.scrollX + rect.left;
-      if (left + tooltipRect.width > window.innerWidth - 20) {
-        left = window.innerWidth - tooltipRect.width - 20;
-      }
+      if (left + tipRect.width > window.innerWidth - 20) left = window.innerWidth - tipRect.width - 20;
+      tooltip.style.top = Math.max(10, top) + "px";
       tooltip.style.left = Math.max(10, left) + "px";
 
-      // Intelligent resolver for active or visible inputs (Instagram comments, DMs, Twitter, etc.)
-      function findActiveOrVisibleInput() {
-        if (activeDraftInput && document.body.contains(activeDraftInput)) {
-          const val = activeDraftInput.isContentEditable ? activeDraftInput.innerText : activeDraftInput.value;
-          if (val && val.trim().length > 0) return activeDraftInput;
-        }
-
-        const active = document.activeElement;
-        if (active && active !== document.body && active !== vibeBtn && !vibeBtn.contains(active) && !tooltip.contains(active)) {
-          if (active.tagName === "TEXTAREA" || active.tagName === "INPUT" || active.isContentEditable) {
-            activeDraftInput = active;
-            return active;
-          }
-        }
-
-        const selectors = [
-          'textarea[aria-label*="comment" i]',
-          'textarea[placeholder*="comment" i]',
-          'div[data-lexical-editor="true"][contenteditable="true"]',
-          'div[aria-label*="Message" i][contenteditable="true"]',
-          'div[role="textbox"][contenteditable="true"]',
-          '[contenteditable="true"]',
-          'form textarea',
-          'textarea',
-          'input[type="text"]'
-        ];
-
-        for (const sel of selectors) {
-          const elements = document.querySelectorAll(sel);
-          for (const el of elements) {
-            if (tooltip.contains(el) || vibeBtn.contains(el)) continue;
-            const text = el.isContentEditable ? el.innerText : el.value;
-            if (text && text.trim().length > 0) {
-              activeDraftInput = el;
-              return el;
-            }
-          }
-        }
-
-        return activeDraftInput;
-      }
-
-      // Multi-framework bulletproof text replacement (Instagram comments, Lexical DMs, React 16-19)
-      function applyTextReplacement(target, newText) {
-        if (!target) return false;
-
-        // 1. Standard Input & Textarea (Instagram comments, React 16/17/18/19 controlled components)
-        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || "value" in target) {
-          target.focus();
-
-          const prototype = Object.getPrototypeOf(target);
-          const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
-
-          // Force React value tracker to be different from target value so onChange fires
-          if (target._valueTracker) {
-            target._valueTracker.setValue("");
-          }
-
-          // Use native prototype setter to guarantee 100% full replacement without cursor prepending
-          if (prototypeValueSetter) {
-            prototypeValueSetter.call(target, newText);
-          } else {
-            target.value = newText;
-          }
-
-          // Dispatch input and change events for React / Vue / Angular
-          try {
-            target.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true, data: newText }));
-          } catch {
-            target.dispatchEvent(new Event("input", { bubbles: true }));
-          }
-          target.dispatchEvent(new Event("change", { bubbles: true }));
-          return true;
-        }
-
-        // 2. Contenteditable elements (Instagram DMs Lexical, Twitter, Slack, WhatsApp Web)
-        const ceRoot = target.isContentEditable 
-          ? (target.closest ? (target.closest('[contenteditable="true"]') || target) : target)
-          : (target.closest ? target.closest('[contenteditable="true"]') : null);
-
-        if (ceRoot) {
-          ceRoot.focus();
-
-          // Select all text nodes from first to last (required for Lexical / Draft.js AST)
-          const walker = document.createTreeWalker(ceRoot, NodeFilter.SHOW_TEXT, null, false);
-          let firstText = walker.nextNode();
-          let lastText = firstText;
-          let curr;
-          while ((curr = walker.nextNode())) {
-            lastText = curr;
-          }
-
-          if (firstText && lastText) {
-            const range = document.createRange();
-            range.setStart(firstText, 0);
-            range.setEnd(lastText, lastText.textContent.length);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-            try {
-              document.execCommand("insertText", false, newText);
-            } catch (e) {}
-          }
-
-          // Prune and clean up any multiple or corrupted spans created by Lexical
-          if (ceRoot.innerText.trim() !== newText.trim()) {
-            const spans = ceRoot.querySelectorAll('span[data-lexical-text="true"]');
-            if (spans.length > 0) {
-              spans[0].textContent = newText;
-              for (let i = 1; i < spans.length; i++) {
-                spans[i].remove();
-              }
-            } else {
-              const p = ceRoot.querySelector('p');
-              if (p) {
-                p.textContent = newText;
-              } else {
-                ceRoot.textContent = newText;
-              }
-            }
-          }
-
-          try {
-            ceRoot.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, cancelable: true, inputType: "insertReplacementText", data: newText }));
-          } catch {}
-          try {
-            ceRoot.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true, inputType: "insertReplacementText", data: newText }));
-          } catch {
-            ceRoot.dispatchEvent(new Event("input", { bubbles: true }));
-          }
-          ceRoot.dispatchEvent(new Event("change", { bubbles: true }));
-          return true;
-        }
-
-        target.innerText = newText;
-        return true;
-      }
-
-      // Replace button handler
-      const replaceBtn = document.getElementById("blur-it-btn-replace");
-      replaceBtn.onclick = (e) => {
-        if (e) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-
-        // Disable button and hide tooltip immediately to prevent multi-clicks
-        replaceBtn.disabled = true;
+      document.getElementById("aimi-btn-replace").onclick = async (e) => {
+        e.preventDefault(); e.stopPropagation();
+        document.getElementById("aimi-btn-replace").disabled = true;
         tooltip.style.display = "none";
-
-        const replacement = result.suggestion;
-        const target = targetElement || findActiveOrVisibleInput();
-        applyTextReplacement(target, replacement);
-
-        // Also copy to clipboard as an instant guarantee
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(replacement).catch(() => {});
-        }
-
-        showToast("✨ Text safely replaced!");
-        setTimeout(() => { replaceBtn.disabled = false; }, 500);
-
-        // Update stats
-        if (chrome.storage && chrome.storage.local) {
-          chrome.storage.local.get(["vibeCheckedCount", "vibeReplacedCount"], (d) => {
-            chrome.storage.local.set({
-              vibeCheckedCount: (d.vibeCheckedCount || 0) + 1,
-              vibeReplacedCount: (d.vibeReplacedCount || 0) + 1
-            });
-          });
+        const tgt = inputEl && document.body.contains(inputEl) ? inputEl : activeDraftInput;
+        await applyTextReplacement(tgt, result.suggestion);
+        try { await navigator.clipboard.writeText(result.suggestion); } catch {}
+        showToast("✨ Text replaced! Copied to clipboard too.");
+        setTimeout(() => { document.getElementById("aimi-btn-replace").disabled = false; }, 600);
+        if (chrome.storage?.local) {
+          chrome.storage.local.get(["aimiStats"],(d)=>{const s=d.aimiStats||{};s.vibeReplaced=(s.vibeReplaced||0)+1;chrome.storage.local.set({aimiStats:s});});
         }
       };
-
-      // Ignore button handler
-      document.getElementById("blur-it-btn-dismiss").onclick = (e) => {
-        if (e) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-        tooltip.style.display = "none";
-      };
+      document.getElementById("aimi-btn-ignore").onclick = (e) => { e.preventDefault(); e.stopPropagation(); tooltip.style.display="none"; };
     }
 
-    // Button click handler
-    vibeBtn.addEventListener("click", async () => {
-      if (!vibeCheckEnabled) return;
+    // Passive, non-intrusive background check on active composer
+    document.addEventListener("input", (e) => {
+      if (!CFG.vibeCheckEnabled) return;
+      const target = e.target;
+      if (!target) return;
+      const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+      if (!isInput) return;
 
-      const inputTarget = (typeof findActiveOrVisibleInput === "function") 
-        ? findActiveOrVisibleInput()
-        : activeDraftInput;
-
-      if (!inputTarget || !document.body.contains(inputTarget)) {
-        showToast("ℹ️ Click inside any text box first to check vibe!");
-        return;
-      }
-
-      activeDraftInput = inputTarget;
-      const text = activeDraftInput.isContentEditable
-        ? activeDraftInput.innerText
-        : activeDraftInput.value;
-
-      if (!text || text.trim().length === 0) {
-        showToast("ℹ️ The text box is empty!");
-        return;
-      }
-
-      const btnText = document.getElementById("blur-it-vibe-btn-text");
-      vibeBtn.classList.add("blur-it-checking");
-      btnText.textContent = "Checking...";
-
-      try {
-        const result = await analyzeDraftVibe(text);
-
-        // Update checked count
-        if (chrome.storage && chrome.storage.local) {
-          chrome.storage.local.get(["vibeCheckedCount"], (d) => {
-            chrome.storage.local.set({
-              vibeCheckedCount: (d.vibeCheckedCount || 0) + 1
-            });
-          });
+      clearTimeout(vibeDebounceTimer);
+      vibeDebounceTimer = setTimeout(async () => {
+        const text = target.isContentEditable ? target.innerText : target.value;
+        if (!text || text.trim().length < 3) {
+          tooltip.style.display = "none";
+          return;
         }
-
+        const result = await analyzeToxicity(text);
         if (result.isToxic) {
-          showVibeTooltip(result, activeDraftInput);
+          showTooltip(result, target);
         } else {
           tooltip.style.display = "none";
-          showToast("✅ Passed Vibe Check! Message is constructive & safe.");
         }
-      } catch (err) {
-        showToast("⚠️ Vibe Check could not complete.");
-      } finally {
-        vibeBtn.classList.remove("blur-it-checking");
-        btnText.textContent = "Vibe Check";
-      }
-    });
+      }, 700);
+    }, { passive: true });
 
-    // Close tooltip on external click or Escape
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") tooltip.style.display = "none";
-    });
+    document.addEventListener("keydown", (e) => { if(e.key==="Escape") tooltip.style.display="none"; });
     document.addEventListener("pointerdown", (e) => {
-      if (!tooltip.contains(e.target) && e.target !== vibeBtn && !vibeBtn.contains(e.target)) {
-        tooltip.style.display = "none";
-      }
+      if(!tooltip.contains(e.target)) tooltip.style.display="none";
     });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
+  /* ── Text Replacement Engine ── */
+  async function applyTextReplacement(target, newText) {
+    if (!target || _replacing) return false;
+    _replacing = true;
+    try {
+      if ((target.tagName==="INPUT"||target.tagName==="TEXTAREA") && !target.isContentEditable) {
+        target.focus();
+        if (target._valueTracker) target._valueTracker.setValue("");
+        const Proto = target.tagName==="TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+        const nativeSetter = Object.getOwnPropertyDescriptor(Proto,"value")?.set;
+        if (nativeSetter) nativeSetter.call(target, newText); else target.value = newText;
+        target.dispatchEvent(new InputEvent("input",{bubbles:true,cancelable:true,inputType:"insertText",data:newText}));
+        target.dispatchEvent(new Event("change",{bubbles:true}));
+        await new Promise(r=>setTimeout(r,60));
+        if (target.value !== newText) { target.focus(); target.select(); document.execCommand("insertText",false,newText); }
+        return true;
+      }
+      const ceRoot = target.isContentEditable ? (target.closest?.('[contenteditable="true"]')||target) : target.closest?.('[contenteditable="true"]');
+      if (ceRoot) {
+        ceRoot.focus();
+        const sel = window.getSelection(); const range = document.createRange();
+        range.selectNodeContents(ceRoot); sel.removeAllRanges(); sel.addRange(range);
+        const ok = document.execCommand("insertText",false,newText);
+        if (ok && ceRoot.innerText.trim()===newText.trim()) return true;
+        const lexSpans = ceRoot.querySelectorAll('span[data-lexical-text="true"]');
+        if (lexSpans.length>0) { lexSpans[0].textContent=newText; for(let i=1;i<lexSpans.length;i++) lexSpans[i].remove(); }
+        else { const c=ceRoot.querySelector("p")||ceRoot; while(c.firstChild) c.removeChild(c.firstChild); c.textContent=newText; }
+        requestAnimationFrame(()=>{try{ceRoot.dispatchEvent(new InputEvent("input",{bubbles:true,cancelable:false,inputType:"insertReplacementText",data:newText}));}catch{ceRoot.dispatchEvent(new Event("input",{bubbles:true}));}});
+        return true;
+      }
+      target.innerText = newText; return true;
+    } finally { setTimeout(()=>{_replacing=false;},250); }
   }
+
+  /* ══════════════════════════════════════════════════════════════
+   *  TOAST NOTIFICATION
+   * ══════════════════════════════════════════════════════════════ */
+  function showToast(msg) {
+    const t = document.createElement("div"); t.className = "aimi-toast";
+    t.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg><span>${msg}</span>`;
+    document.body.appendChild(t);
+    setTimeout(()=>{t.style.transition="opacity 0.3s,transform 0.3s";t.style.opacity="0";t.style.transform="translateY(8px)";setTimeout(()=>t.remove(),350);},2800);
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+   *  INIT
+   * ══════════════════════════════════════════════════════════════ */
+  function init() {
+    loadSettings(() => {
+      listenSettingsChanges();
+
+      // NSFW image pipeline
+      document.querySelectorAll("img").forEach(observeImage);
+      imgMutObs.observe(document.body||document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:["src","srcset"]});
+
+      // Toxicity + semantic feed & chat pipeline
+      initFeedPipeline();
+
+      // Pre-post composer checker
+      if (CFG.vibeCheckEnabled) initVibeChecker();
+    });
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
 })();

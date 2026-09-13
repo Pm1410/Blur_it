@@ -1,15 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "Local NSFW Shield — On-Device Image Classifier",
+  "name": "AI/M.I. — A Layer Between You and the Noise",
   "version": "1.0.0",
-  "description": "On-device, privacy-preserving CNN classifier that detects and blurs NSFW and Graphic images directly in the browser.",
-  "permissions": [
-    "storage",
-    "offscreen"
-  ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
+  "description": "Privacy-preserving on-device content moderation. Filters toxic posts, blurs NSFW images, semantic topic filtering, and pre-post toxicity checking. Zero backend. All local.",
+  "permissions": ["storage", "offscreen", "clipboardWrite"],
+  "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -26,30 +21,25 @@
     }
   ],
   "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
+    "16":  "icons/icon16.png",
+    "48":  "icons/icon48.png",
     "128": "icons/icon128.png"
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Local NSFW Shield",
+    "default_title": "AI/M.I. — Content Shield",
     "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
+      "16":  "icons/icon16.png",
+      "48":  "icons/icon48.png",
       "128": "icons/icon128.png"
     }
   },
   "web_accessible_resources": [
     {
       "resources": [
-        "offscreen.html",
-        "offscreen.js",
-        "worker.js",
-        "ort.min.js",
-        "ort-wasm-simd.wasm",
-        "*.wasm",
-        "models/*",
-        "demo_images/*"
+        "offscreen.html", "offscreen.js", "worker.js",
+        "ort.min.js", "ort-wasm-simd.wasm", "*.wasm",
+        "models/*", "demo.html"
       ],
       "matches": ["<all_urls>"]
     }

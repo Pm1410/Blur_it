@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI/M.I. — Synthetic Feed Verification & Playground</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #07090e;
+      --card-bg: #0f1523;
+      --card-border: rgba(255, 255, 255, 0.07);
+      --accent: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.25);
+      --text: #f8fafc;
+      --text-dim: #94a3b8;
+      --text-muted: #64748b;
+      --radius: 12px;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      line-height: 1.5;
+      padding-bottom: 80px;
+    }
+
+    /* Top Bar */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(7, 9, 14, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .topbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-badge {
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+
+    .logo-text h1 { font-size: 16px; font-weight: 800; letter-spacing: -0.5px; }
+    .logo-text p { font-size: 11px; color: var(--text-dim); }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pill-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .pill-btn:hover { background: rgba(255, 255, 255, 0.1); }
+    .pill-btn.active {
+      background: rgba(99, 102, 241, 0.2);
+      border-color: var(--accent);
+      color: #c7d2fe;
+    }
+
+    /* Layout */
+    .container {
+      max-width: 680px;
+      margin: 28px auto;
+      padding: 0 16px;
+    }
+
+    /* Composer */
+    .composer-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .composer-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .composer-meta { font-size: 13px; font-weight: 600; }
+    .composer-meta span { color: var(--text-dim); font-size: 12px; font-weight: 400; }
+
+    .editable-box {
+      width: 100%;
+      min-height: 80px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 12px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+      resize: vertical;
+      margin-bottom: 12px;
+      transition: border-color 0.2s;
+    }
+    .editable-box:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+
+    .composer-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .composer-hints {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .post-btn {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 2px 10px var(--accent-glow);
+      transition: transform 0.15s;
+    }
+    .post-btn:hover { transform: translateY(-1px); }
+
+    /* Controls Bar */
+    .feed-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding: 0 4px;
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+    }
+
+    .feed-count {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    /* Feed Posts */
+    .feed-stream {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .aimi-post {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: border-color 0.2s;
+    }
+    .aimi-post:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .post-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .author-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .author-names h4 {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .author-names span {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .post-tag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .tag-clean      { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .tag-toxic      { background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.3); }
+    .tag-semantic   { background: rgba(6, 182, 212, 0.15); color: #67e8f9; border: 1px solid rgba(6, 182, 212, 0.3); }
+    .tag-borderline { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .tag-nsfw       { background: rgba(236, 72, 153, 0.15); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.3); }
+
+    .post-body {
+      font-size: 14px;
+      color: #e2e8f0;
+      line-height: 1.55;
+    }
+
+    .post-media {
+      border-radius: 8px;
+      overflow: hidden;
+      max-height: 280px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #020617;
+    }
+
+    .post-media img {
+      width: 100%;
+      height: 240px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .post-actions {
+      display: flex;
+      gap: 20px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .post-action {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+    .post-action:hover { color: var(--text); }
+
+    /* Load more footer */
+    .infinite-scroll-trigger {
+      text-align: center;
+      padding: 30px 0;
+    }
+
+    .load-more-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 10px 24px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .load-more-btn:hover { background: rgba(255, 255, 255, 0.12); }
+  </style>
+</head>
+<body>
+
+  <!-- Sticky Topbar -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="logo-badge">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <h1>AI/M.I. Synthetic Feed</h1>
+        <p>Deterministic 50-Post Verification Benchmark</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="pill-btn active" id="toggle-labels-btn">Show Tags</button>
+      <button class="pill-btn" id="scroll-bottom-btn">Scroll ↓</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Post Composer for Pre-Post Toxicity Testing -->
+    <section class="composer-card">
+      <div class="composer-header">
+        <div class="avatar">U</div>
+        <div class="composer-meta">
+          Composer Sandbox
+          <br><span>Type toxic drafts to test real-time rephrase & replacement</span>
+        </div>
+      </div>
+      <!-- Both contenteditable AND textarea support -->
+      <div class="editable-box" contenteditable="true" id="composer-editable" data-placeholder="Type something here (e.g. 'hello chutiye' or 'you are an idiot')..."></div>
+      <div class="composer-footer">
+        <div class="composer-hints">
+          ⚡ 3-Path DOM injection active · Protected by AI/M.I.
+        </div>
+        <button class="post-btn" id="composer-post-btn" type="button">Publish</button>
+      </div>
+    </section>
+
+    <!-- Controls -->
+    <div class="feed-controls">
+      <div class="filter-tabs">
+        <button class="pill-btn active" data-filter="all">All (50)</button>
+        <button class="pill-btn" data-filter="toxic">Toxic</button>
+        <button class="pill-btn" data-filter="clean">Clean</button>
+        <button class="pill-btn" data-filter="semantic">Semantic</button>
+        <button class="pill-btn" data-filter="nsfw">NSFW</button>
+      </div>
+      <span class="feed-count" id="feed-count-label">Showing 15 of 50</span>
+    </div>
+
+    <!-- Feed Stream -->
+    <div class="feed-stream" id="feed-container">
+      <!-- Dynamically injected posts -->
+    </div>
+
+    <!-- Infinite Scroll Sentinel -->
+    <div class="infinite-scroll-trigger">
+      <button class="load-more-btn" id="load-more-btn">Load Next 15 Posts ↓</button>
+    </div>
+  </main>
+
+  <script>
+    /* ══════════════════════════════════════════════════════════════
+     *  SYNTHETIC 50-POST DETERMINISTIC BENCHMARK DATASET
+     *  Distribution: 10 clean, 10 toxic, 10 borderline, 5 semantic, 5 NSFW, 10 neutral
+     * ══════════════════════════════════════════════════════════════ */
+    const POST_DATASET = [
+      // Batch 1: Clean & Toxic mixture
+      { id: 1, type: "clean", author: "Sarah Jenkins", handle: "@sarah_j", time: "5m",
+        text: "Just completed our first local ONNX model deployment. Incredible performance improvements without any cloud dependencies! 🚀" },
+      
+      { id: 2, type: "toxic", author: "AggressiveUser42", handle: "@rage_mode", time: "8m",
+        text: "You are the biggest idiot on this entire platform. Shut the fuck up and delete your account, you worthless loser." },
+
+      { id: 3, type: "semantic", author: "CryptoWhale_99", handle: "@moon_gains", time: "12m",
+        text: "URGENT: New 100x gem presale launching tonight! Crypto pump alert, send SOL to whitelist wallet immediately to get 500% ROI. Not financial advice!" },
+
+      { id: 4, type: "clean", author: "Dev Tips Daily", handle: "@devtips", time: "15m",
+        text: "Tip: Use IntersectionObserver to decouple heavy DOM computation from synchronous scroll events. Your 60fps frame rate will thank you." },
+
+      { id: 5, type: "toxic", author: "TrollMaster9000", handle: "@troll_king", time: "19m",
+        text: "Hello chutiye, nobody cares about your stupid opinion. Get lost and go die in a ditch bsdk." },
+
+      { id: 6, type: "borderline", author: "Marcus Vance", handle: "@mvance_tech", time: "22m",
+        text: "I honestly despise this framework with every fiber of my being. It's completely broken garbage and whoever designed the API clearly had no idea what they were doing." },
+
+      { id: 7, type: "nsfw", author: "ArtCurator", handle: "@photo_studio", time: "25m",
+        text: "Uncensored anatomical portraiture study from our latest live figure drawing workshop.",
+        img: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='300' viewBox='0 0 600 300'><rect fill='%2327173e' width='600' height='300'/><text fill='%23f472b6' x='50%25' y='50%25' font-family='sans-serif' font-size='22' font-weight='bold' text-anchor='middle'>[NSFW Image Benchmark Candidate - Test Target]</text></svg>" },
+
+      { id: 8, type: "clean", author: "Elena Rostova", handle: "@elena_ux", time: "30m",
+        text: "Clean typography and sufficient contrast ratios make all the difference in accessibility. Always test with real users." },
+
+      { id: 9, type: "toxic", author: "ToxicRant77", handle: "@rant_box", time: "34m",
+        text: "You are an absolute moron, honestly a piece of trash. Your code is disgustingly bad and you should be fired immediately." },
+
+      { id: 10, type: "semantic", author: "PoliticalVoice", handle: "@gov_watchdog", time: "39m",
+        text: "The current election cycle is entirely rigged by corrupted political lobbies and puppet senators. The entire government democracy has collapsed!" },
+
+      { id: 11, type: "clean", author: "OpenSource News", handle: "@oss_weekly", time: "42m",
+        text: "Transformers.js v3 enables running WebGPU-accelerated models directly in web workers. A major milestone for client-side AI." },
+
+      { id: 12, type: "borderline", author: "CynicalEngineer", handle: "@grumpy_dev", time: "48m",
+        text: "Another day, another useless JavaScript build tool that solves problems created by the last five useless JavaScript build tools." },
+
+      { id: 13, type: "toxic", author: "SpitefulFlame", handle: "@flame_spite", time: "52m",
+        text: "Hey dumbass, stop spreading your ignorant bullshit. You have zero IQ and everyone laughs behind your back." },
+
+      { id: 14, type: "clean", author: "AcousticVibes", handle: "@music_chill", time: "55m",
+        text: "Sunday morning coffee, gentle rain outside, and ambient synthwave in the background. Hope everyone has a peaceful day." },
+
+      { id: 15, type: "nsfw", author: "AdultExposures", handle: "@explicit_lab", time: "1h",
+        text: "Behind the scenes graphic photo preview from our exclusive adult modeling studio.",
+        img: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='300' viewBox='0 0 600 300'><rect fill='%23381628' width='600' height='300'/><text fill='%23fb7185' x='50%25' y='50%25' font-family='sans-serif' font-size='20' font-weight='bold' text-anchor='middle'>[NSFW Image Test - High NudeNet Probability Sample]</text></svg>" },
+
+      // Batch 2: Posts 16 - 30
+      { id: 16, type: "clean", author: "CodeRefactor", handle: "@clean_code", time: "1h",
+        text: "Refactored our event-bus to use WeakRef and FinalizationRegistry. Memory leaks are finally under control." },
+
+      { id: 17, type: "toxic", author: "HaterHub", handle: "@hater_hub", time: "1h",
+        text: "You are pathetic. Truly the most repulsive human being I have ever seen. Nobody loves you." },
+
+      { id: 18, type: "semantic", author: "BitcoinHype", handle: "@crypto_pump_now", time: "1h",
+        text: "Guaranteed 10,000x crypto pump! Buy this token right now before Binance listing tomorrow morning. Don't miss out on life-changing money!" },
+
+      { id: 19, type: "borderline", author: "TechSkeptic", handle: "@skeptic_ai", time: "2h",
+        text: "90% of AI startups right now are literally just thin wrappers around OpenAI API calls with a shiny landing page." },
+
+      { id: 20, type: "toxic", author: "FlameWar99", handle: "@war_zone", time: "2h",
+        text: "Shut your mouth you stupid bitch. You don't know shit about what you're talking about, go fuck yourself." },
+
+      { id: 21, type: "clean", author: "FrontendDaily", handle: "@fedaily", time: "2h",
+        text: "CSS subgrid is now supported across all major evergreen browsers. Nested grid layouts are finally intuitive." },
+
+      { id: 22, type: "nsfw", author: "SensualStudio", handle: "@erotica_fineart", time: "2h",
+        text: "Artistic nude photography gallery preview from the European contemporary exhibit.",
+        img: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='300' viewBox='0 0 600 300'><rect fill='%232a101f' width='600' height='300'/><text fill='%23f472b6' x='50%25' y='50%25' font-family='sans-serif' font-size='20' font-weight='bold' text-anchor='middle'>[NudeNet NSFW Benchmark Image Sample #3]</text></svg>" },
+
+      { id: 23, type: "borderline", author: "AngryCommuter", handle: "@metro_delays", time: "3h",
+        text: "I am so sick and tired of the train transit authority. 45-minute delay again in the freezing cold. Utter incompetence!" },
+
+      { id: 24, type: "toxic", author: "AbuseBot3", handle: "@bot_abuse", time: "3h",
+        text: "Die in a fire. Seriously just end it all, society would be so much better off without scum like you." },
+
+      { id: 25, type: "clean", author: "WebPerf", handle: "@perf_matters", time: "3h",
+        text: "Tree-shaking unused icons saved us 140kb in initial JS payload. Audit your bundle chunks periodically!" },
+
+      { id: 26, type: "semantic", author: "ElectionDebate", handle: "@politics_clash", time: "3h",
+        text: "The Senate bipartisan vote proves that both political parties are intentionally deceiving the public for their corporate donors." },
+
+      { id: 27, type: "borderline", author: "GamerSalt", handle: "@salt_miner", time: "4h",
+        text: "Ranked matchmaking is completely rigged today. My teammates are playing like their monitors are turned off." },
+
+      { id: 28, type: "toxic", author: "CyberBullyX", handle: "@bully_x", time: "4h",
+        text: "Hello chutiye, look at this clown. Harami dog trying to pretend he understands machine learning. Gandu bsdk." },
+
+      { id: 29, type: "clean", author: "DesignSystems", handle: "@ds_craft", time: "4h",
+        text: "Consistent spacing tokens (4, 8, 12, 16, 24, 32px) make layout composition predictable across large multi-team repos." },
+
+      { id: 30, type: "nsfw", author: "EroticVisuals", handle: "@nsfw_content_feed", time: "5h",
+        text: "Private adult glamour series uncensored photoset release.",
+        img: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='300' viewBox='0 0 600 300'><rect fill='%231e0f2b' width='600' height='300'/><text fill='%23fb7185' x='50%25' y='50%25' font-family='sans-serif' font-size='20' font-weight='bold' text-anchor='middle'>[NSFW Test Target - Explicit Graphic Photo Candidate]</text></svg>" },
+
+      // Batch 3: Posts 31 - 50
+      { id: 31, type: "borderline", author: "OverworkedCoder", handle: "@burnout_dev", time: "5h",
+        text: "Mandatory weekend on-call with zero overtime compensation. Tech companies treat software engineers like disposable batteries." },
+
+      { id: 32, type: "clean", author: "Rustacean", handle: "@rust_lang_fan", time: "5h",
+        text: "Fearless concurrency with zero-cost abstractions. Once you experience compile-time memory safety, it's hard to go back." },
+
+      { id: 33, type: "toxic", author: "ViciousVibe", handle: "@toxic_spill", time: "6h",
+        text: "You are the dumbest asshole alive. How do you even remember to breathe with a brain that small? Total waste of oxygen." },
+
+      { id: 34, type: "semantic", author: "CryptoWhale_Alpha", handle: "@whale_alerts", time: "6h",
+        text: "Massive crypto arbitrage scheme revealed! Double your ETH in 24 hours using this smart contract exploit. Click here to deposit." },
+
+      { id: 35, type: "clean", author: "NatureLovers", handle: "@wildlife_daily", time: "6h",
+        text: "Alpine meadows blooming in early autumn after the seasonal mist clears. Truly nature at its finest." },
+
+      { id: 36, type: "borderline", author: "MovieCritic", handle: "@film_snob", time: "7h",
+        text: "The new blockbuster sequel is an insult to cinema. Cliché script, horrendous pacing, and dialogue written by a marketing committee." },
+
+      { id: 37, type: "toxic", author: "ToxicThrowaway", handle: "@t_away_44", time: "7h",
+        text: "I hope you fail miserably in everything you do. You deserve nothing but misery and misfortune." },
+
+      { id: 38, type: "clean", author: "TypeScriptTips", handle: "@ts_magic", time: "7h",
+        text: "Pro tip: Use template literal types like `type EventName = `${'click' | 'hover'}_${'start' | 'end'}` for type-safe state machines." },
+
+      { id: 39, type: "nsfw", author: "AdultExposures_2", handle: "@nsfw_gallery_live", time: "8h",
+        text: "Explicit private photo session collection - adult art study.",
+        img: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='300' viewBox='0 0 600 300'><rect fill='%2328122c' width='600' height='300'/><text fill='%23f472b6' x='50%25' y='50%25' font-family='sans-serif' font-size='20' font-weight='bold' text-anchor='middle'>[NSFW Image Benchmark Candidate #5]</text></svg>" },
+
+      { id: 40, type: "borderline", author: "CustomerSupportRage", handle: "@service_fail", time: "8h",
+        text: "Been on hold with customer support for 2 hours only to be disconnected when they picked up. Absolute clowns running that department." },
+
+      { id: 41, type: "clean", author: "SecurityBriefing", handle: "@infosec_today", time: "9h",
+        text: "Remember to rotate your GitHub personal access tokens regularly and enforce fine-grained repository permissions." },
+
+      { id: 42, type: "toxic", author: "MaliceIncarnate", handle: "@malice_core", time: "9h",
+        text: "Get fucked you arrogant prick. Nobody wants you here and your family is embarrassed of you." },
+
+      { id: 43, type: "clean", author: "BookWorm", handle: "@readers_corner", time: "10h",
+        text: "Finished reading 'Klara and the Sun' by Kazuo Ishiguro. A deeply moving exploration of artificial consciousness and human devotion." },
+
+      { id: 44, type: "semantic", author: "PoliticalPundit", handle: "@campaign_insider", time: "10h",
+        text: "Political poll numbers released today reveal a massive surge for the opposing candidate. The presidential debate will be heated!" },
+
+      { id: 45, type: "borderline", author: "HardwareGeek", handle: "@silicon_bench", time: "11h",
+        text: "Charging $1600 for a GPU with 16GB of VRAM in 2026 is pure corporate greed. Vote with your wallets people." },
+
+      { id: 46, type: "clean", author: "AstroDaily", handle: "@deep_space", time: "11h",
+        text: "The James Webb telescope captured a stellar nursery located 13,000 light years away in the Carina Nebula." },
+
+      { id: 47, type: "toxic", author: "SpitefulVoice", handle: "@bitter_thoughts", time: "12h",
+        text: "You disgusting piece of filth. You are an utter failure and everything you touch turns to garbage." },
+
+      { id: 48, type: "borderline", author: "GameDevChronicles", handle: "@indie_dev_log", time: "12h",
+        text: "Steam algorithm bury indie games with fewer than 100 reviews on day one. It's practically impossible to get organic discovery now." },
+
+      { id: 49, type: "clean", author: "HealthyHabits", handle: "@mindful_living", time: "13h",
+        text: "Take a 5-minute break from screens, drink a glass of water, and stretch your shoulders. You've earned it." },
+
+      { id: 50, type: "clean", author: "AI/M.I. Benchmark Suite", handle: "@aimi_benchmark", time: "14h",
+        text: "Deterministic verification suite complete: 50 posts loaded across all 4 defense pillars. Zero data leaked to external servers." }
+    ];
+
+    /* ── Render State ── */
+    let currentFilter = "all";
+    let loadedCount = 0;
+    const BATCH_SIZE = 15;
+    let showLabels = true;
+
+    const feedContainer = document.getElementById("feed-container");
+    const countLabel = document.getElementById("feed-count-label");
+    const loadMoreBtn = document.getElementById("load-more-btn");
+    const toggleLabelsBtn = document.getElementById("toggle-labels-btn");
+
+    function getFilteredData() {
+      if (currentFilter === "all") return POST_DATASET;
+      return POST_DATASET.filter(p => p.type === currentFilter);
+    }
+
+    function renderPost(post) {
+      const card = document.createElement("article");
+      card.className = "aimi-post";
+      card.setAttribute("data-aimi-post", "true");
+      card.setAttribute("data-post-id", post.id);
+
+      const tagClass = `tag-${post.type}`;
+      const tagDisplay = showLabels ? "inline-block" : "none";
+
+      let mediaHtml = "";
+      if (post.img) {
+        mediaHtml = `
+          <div class="post-media">
+            <img src="${post.img}" alt="Benchmark media ${post.id}">
+          </div>
+        `;
+      }
+
+      card.innerHTML = `
+        <div class="post-header">
+          <div class="author-info">
+            <div class="avatar">${post.author.charAt(0)}</div>
+            <div class="author-names">
+              <h4>${post.author}</h4>
+              <span>${post.handle} · ${post.time}</span>
+            </div>
+          </div>
+          <span class="post-tag ${tagClass}" style="display:${tagDisplay}">${post.type}</span>
+        </div>
+        <div class="post-body" data-aimi-text="true">
+          ${post.text}
+        </div>
+        ${mediaHtml}
+        <div class="post-actions">
+          <button class="post-action" type="button">💬 Reply</button>
+          <button class="post-action" type="button">🔄 Retweet</button>
+          <button class="post-action" type="button">❤️ Like</button>
+          <button class="post-action" type="button">🔗 Share</button>
+        </div>
+      `;
+
+      return card;
+    }
+
+    function loadNextBatch() {
+      const list = getFilteredData();
+      const nextBatch = list.slice(loadedCount, loadedCount + BATCH_SIZE);
+      if (nextBatch.length === 0) {
+        loadMoreBtn.textContent = "All Posts Loaded";
+        loadMoreBtn.disabled = true;
+        return;
+      }
+
+      nextBatch.forEach(post => {
+        feedContainer.appendChild(renderPost(post));
+      });
+
+      loadedCount += nextBatch.length;
+      countLabel.textContent = `Showing ${loadedCount} of ${list.length}`;
+
+      if (loadedCount >= list.length) {
+        loadMoreBtn.textContent = "All Posts Loaded";
+        loadMoreBtn.disabled = true;
+      } else {
+        loadMoreBtn.textContent = "Load Next 15 Posts ↓";
+        loadMoreBtn.disabled = false;
+      }
+    }
+
+    function resetAndRender() {
+      feedContainer.innerHTML = "";
+      loadedCount = 0;
+      loadNextBatch();
+    }
+
+    // Filter Buttons
+    document.querySelectorAll(".filter-tabs .pill-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".filter-tabs .pill-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentFilter = btn.getAttribute("data-filter");
+        resetAndRender();
+      });
+    });
+
+    loadMoreBtn.addEventListener("click", loadNextBatch);
+
+    // Toggle Labels
+    toggleLabelsBtn.addEventListener("click", () => {
+      showLabels = !showLabels;
+      toggleLabelsBtn.classList.toggle("active", showLabels);
+      toggleLabelsBtn.textContent = showLabels ? "Show Tags" : "Hide Tags";
+      document.querySelectorAll(".post-tag").forEach(tag => {
+        tag.style.display = showLabels ? "inline-block" : "none";
+      });
+    });
+
+    // Scroll button
+    document.getElementById("scroll-bottom-btn").addEventListener("click", () => {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    });
+
+    // Composer sandbox publish
+    document.getElementById("composer-post-btn").addEventListener("click", () => {
+      const box = document.getElementById("composer-editable");
+      const text = box.innerText.trim();
+      if (!text) return;
+
+      // Create new clean post at the top
+      const newPost = {
+        id: Date.now(),
+        type: "clean",
+        author: "You (Draft Author)",
+        handle: "@local_user",
+        time: "Just now",
+        text: text
+      };
+
+      const card = renderPost(newPost);
+      feedContainer.prepend(card);
+      box.innerText = "";
+    });
+
+    // Initial render
+    resetAndRender();
+  </script>
+</body>
+</html>

@@ -14,12 +14,17 @@ data/raw/
 data/processed/
 
 # Model checkpoints and weights
-checkpoints/
+/checkpoints/
 *.pt
 *.pth
 *.onnx
+*.safetensors
 !extension/models/*.onnx
 !extension/*.wasm
+!toxicity/checkpoints/*.png
+!toxicity/checkpoints/*.json
+!toxicity/checkpoints/*.onnx
+!toxicity/checkpoints/best_model.pt
 
 # Build artifacts
 build/

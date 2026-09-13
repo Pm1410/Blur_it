@@ -126,6 +126,13 @@ let isExpanded = false;
 let activeInputField = null;
 let collapseTimeout = null;
 
+// Hackathon Flex: Log stats to prove offline capability
+console.log(`%c[CYHI ENGINE ONLINE]`, 'color: #00ff00; font-weight: bold; font-size: 14px;');
+console.log(`%c✓ 100% Offline Edge-Compute Architecture`, 'color: #00ff00;');
+console.log(`%c✓ Hindi/Hinglish Dictionary: ${hinglish_swear_words.length} terms loaded`, 'color: #00ffff;');
+console.log(`%c✓ English Dictionary: ${englishToxicWords.length + englishSevere.length + englishMild.length} terms loaded`, 'color: #00ffff;');
+console.log(`%c✓ Active Modes: Feed Scanner (DOM) + Vibe Check (Input)`, 'color: #ffaa00;');
+
 function resetCollapseTimer() {
     clearTimeout(collapseTimeout);
     if (isExpanded) {

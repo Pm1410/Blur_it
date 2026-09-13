@@ -346,10 +346,17 @@ function makeSafeRegex(word) {
 function calculateScore(text) {
     let score = 0;
     let lower = text.toLowerCase();
-    englishThreats.forEach(word => { if (lower.includes(word)) score += 100; });
-    hinglish_swear_words.forEach(word => { if (makeSafeRegex(word).test(text)) score += 90; });
-    englishSevere.forEach(word => { if (makeSafeRegex(word).test(text)) score += 90; });
-    englishMild.forEach(word => { if (makeSafeRegex(word).test(text)) score += 40; });
+    
+    // Tier 3: Death Threats (80 to 100)
+    englishThreats.forEach(word => { if (lower.includes(word)) score = Math.max(score, 95); });
+    
+    // Tier 2: Severe Slang / Abuses (70 to 80)
+    hinglish_swear_words.forEach(word => { if (makeSafeRegex(word).test(text)) score = Math.max(score, 75); });
+    englishSevere.forEach(word => { if (makeSafeRegex(word).test(text)) score = Math.max(score, 75); });
+    
+    // Tier 1: Mild Slang / Insults (50 to 60)
+    englishMild.forEach(word => { if (makeSafeRegex(word).test(text)) score = Math.max(score, 55); });
+    
     return Math.min(score, 100);
 }
 
@@ -457,13 +464,16 @@ function scanNode(node) {
                     if (currentMode !== 'hoverer') updateRatingUI(globalMaxToxicity);
                 }
                 
-                if (score >= 80) {
+                // Trigger blur for anything slang or above (Score >= 50)
+                if (score >= 50) {
                     parent.classList.add('cyhi-blurred');
                 }
             }
         }
     } else {
-        node.childNodes.forEach(scanNode);
+        if (node.childNodes) {
+            node.childNodes.forEach(scanNode);
+        }
     }
 }
 

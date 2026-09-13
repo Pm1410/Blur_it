@@ -665,71 +665,151 @@
       }
       tooltip.style.left = Math.max(10, left) + "px";
 
-      // Multi-framework bulletproof text replacement
+      // Intelligent resolver for active or visible inputs (Instagram comments, DMs, Twitter, etc.)
+      function findActiveOrVisibleInput() {
+        if (activeDraftInput && document.body.contains(activeDraftInput)) {
+          const val = activeDraftInput.isContentEditable ? activeDraftInput.innerText : activeDraftInput.value;
+          if (val && val.trim().length > 0) return activeDraftInput;
+        }
+
+        const active = document.activeElement;
+        if (active && active !== document.body && active !== vibeBtn && !vibeBtn.contains(active) && !tooltip.contains(active)) {
+          if (active.tagName === "TEXTAREA" || active.tagName === "INPUT" || active.isContentEditable) {
+            activeDraftInput = active;
+            return active;
+          }
+        }
+
+        const selectors = [
+          'textarea[aria-label*="comment" i]',
+          'textarea[placeholder*="comment" i]',
+          'div[data-lexical-editor="true"][contenteditable="true"]',
+          'div[aria-label*="Message" i][contenteditable="true"]',
+          'div[role="textbox"][contenteditable="true"]',
+          '[contenteditable="true"]',
+          'form textarea',
+          'textarea',
+          'input[type="text"]'
+        ];
+
+        for (const sel of selectors) {
+          const elements = document.querySelectorAll(sel);
+          for (const el of elements) {
+            if (tooltip.contains(el) || vibeBtn.contains(el)) continue;
+            const text = el.isContentEditable ? el.innerText : el.value;
+            if (text && text.trim().length > 0) {
+              activeDraftInput = el;
+              return el;
+            }
+          }
+        }
+
+        return activeDraftInput;
+      }
+
+      // Multi-framework bulletproof text replacement (Instagram comments, Lexical DMs, React 16-19)
       function applyTextReplacement(target, newText) {
         if (!target) return false;
 
-        // 1. Contenteditable elements (WhatsApp Web, Twitter/X, Discord, Slack, Lexical, Draft.js)
-        const contentEditableRoot = target.isContentEditable 
+        // 1. Contenteditable elements (Instagram DMs Lexical, Twitter, Slack, WhatsApp Web)
+        const ceRoot = target.isContentEditable 
           ? (target.closest ? (target.closest('[contenteditable="true"]') || target) : target)
           : (target.closest ? target.closest('[contenteditable="true"]') : null);
 
-        if (contentEditableRoot) {
-          contentEditableRoot.focus();
-          let replaced = false;
+        if (ceRoot) {
+          ceRoot.focus();
+          let success = false;
+
+          // Strategy A: Native SelectAll + insertText (Meta Lexical accepts this natively)
           try {
-            const range = document.createRange();
-            range.selectNodeContents(contentEditableRoot);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-            replaced = document.execCommand("insertText", false, newText);
-          } catch (e) {
-            console.debug("execCommand CE error:", e);
+            document.execCommand("selectAll", false, null);
+            success = document.execCommand("insertText", false, newText);
+          } catch (e) {}
+
+          // Strategy B: ClipboardEvent paste (Lexical / Draft.js always accepts synthetic paste)
+          if (!success || ceRoot.innerText.trim() !== newText.trim()) {
+            try {
+              const dt = new DataTransfer();
+              dt.setData("text/plain", newText);
+              const pasteEv = new ClipboardEvent("paste", {
+                bubbles: true,
+                cancelable: true,
+                clipboardData: dt
+              });
+              document.execCommand("selectAll", false, null);
+              ceRoot.dispatchEvent(pasteEv);
+              if (ceRoot.innerText.trim() === newText.trim()) success = true;
+            } catch (e) {}
           }
 
-          if (!replaced || (contentEditableRoot.innerText.trim() !== newText.trim())) {
-            contentEditableRoot.innerText = newText;
-            contentEditableRoot.textContent = newText;
+          // Strategy C: Target child span/paragraph directly if Lexical structure exists
+          if (!success || ceRoot.innerText.trim() !== newText.trim()) {
+            try {
+              const span = ceRoot.querySelector('span[data-lexical-text="true"]') || ceRoot.querySelector('p') || ceRoot;
+              const range = document.createRange();
+              range.selectNodeContents(span);
+              const sel = window.getSelection();
+              sel.removeAllRanges();
+              sel.addRange(range);
+              success = document.execCommand("insertText", false, newText);
+            } catch (e) {}
           }
 
+          // Strategy D: Direct assignment fallback
+          if (!success || ceRoot.innerText.trim() !== newText.trim()) {
+            ceRoot.innerText = newText;
+          }
+
+          // Fire standard reactive events
           try {
-            contentEditableRoot.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true, inputType: "insertReplacementText", data: newText }));
+            ceRoot.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, cancelable: true, inputType: "insertReplacementText", data: newText }));
+          } catch {}
+          try {
+            ceRoot.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true, inputType: "insertReplacementText", data: newText }));
           } catch {
-            contentEditableRoot.dispatchEvent(new Event("input", { bubbles: true }));
+            ceRoot.dispatchEvent(new Event("input", { bubbles: true }));
           }
-          contentEditableRoot.dispatchEvent(new Event("change", { bubbles: true }));
+          ceRoot.dispatchEvent(new Event("change", { bubbles: true }));
           return true;
         }
 
-        // 2. Standard Input & Textarea (supports React 16+, Vue, Angular controlled inputs)
+        // 2. Standard Input & Textarea (Instagram comments, React 16/17/18/19 controlled components)
         if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || "value" in target) {
           target.focus();
-          let replaced = false;
 
+          // Reset React _valueTracker so React component state updates and enables the "Post" button
+          if (target._valueTracker) {
+            target._valueTracker.setValue(target.value + "_forced_change");
+          }
+
+          let execSuccess = false;
           try {
             if (target.select) target.select();
             if (target.setSelectionRange) target.setSelectionRange(0, target.value.length);
-            replaced = document.execCommand("insertText", false, newText);
-          } catch (e) {
-            console.debug("execCommand input error:", e);
-          }
+            execSuccess = document.execCommand("insertText", false, newText);
+          } catch (e) {}
 
-          // React native prototype setter fallback
-          try {
-            const proto = target.tagName === "TEXTAREA" 
-              ? window.HTMLTextAreaElement.prototype 
-              : window.HTMLInputElement.prototype;
-            const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
-            if (setter) {
-              setter.call(target, newText);
-            } else {
+          // Native prototype setter fallback
+          if (!execSuccess || target.value !== newText) {
+            try {
+              const proto = target.tagName === "TEXTAREA" 
+                ? window.HTMLTextAreaElement.prototype 
+                : window.HTMLInputElement.prototype;
+              const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+              if (setter) {
+                setter.call(target, newText);
+              } else {
+                target.value = newText;
+              }
+            } catch {
               target.value = newText;
             }
-          } catch {
-            target.value = newText;
           }
 
+          // Fire beforeinput, input, and change events
+          try {
+            target.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, cancelable: true, inputType: "insertReplacementText", data: newText }));
+          } catch {}
           try {
             target.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true, inputType: "insertReplacementText", data: newText }));
           } catch {
@@ -739,7 +819,7 @@
           return true;
         }
 
-        // 3. Fallback
+        // 3. Generic element fallback
         target.innerText = newText;
         target.textContent = newText;
         return true;
@@ -753,10 +833,16 @@
           e.stopPropagation();
         }
         const replacement = result.suggestion;
-        applyTextReplacement(targetElement, replacement);
+        const target = targetElement || findActiveOrVisibleInput();
+        applyTextReplacement(target, replacement);
+
+        // Also copy to clipboard as an instant guarantee
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(replacement).catch(() => {});
+        }
 
         tooltip.style.display = "none";
-        showToast("✨ Text safely replaced with constructive version!");
+        showToast("✨ Text replaced! (Copied to clipboard: Ctrl+V / ⌘V)");
 
         // Update stats
         if (chrome.storage && chrome.storage.local) {
@@ -783,11 +869,16 @@
     vibeBtn.addEventListener("click", async () => {
       if (!vibeCheckEnabled) return;
 
-      if (!activeDraftInput || !document.body.contains(activeDraftInput)) {
+      const inputTarget = (typeof findActiveOrVisibleInput === "function") 
+        ? findActiveOrVisibleInput()
+        : activeDraftInput;
+
+      if (!inputTarget || !document.body.contains(inputTarget)) {
         showToast("ℹ️ Click inside any text box first to check vibe!");
         return;
       }
 
+      activeDraftInput = inputTarget;
       const text = activeDraftInput.isContentEditable
         ? activeDraftInput.innerText
         : activeDraftInput.value;

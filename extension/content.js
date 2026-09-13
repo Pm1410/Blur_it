@@ -263,21 +263,56 @@
   let activeDraftInput = null;
 
   const FILLER_SWEAR_WORDS = [
-    "mc", "bc", "mkc", "bsdk", "bhosdike", "bhosadike", "madarchod", 
-    "behenchod", "bhenchod", "bkl", "cunt", "fck", "stfu"
+    "mc", "bc", "b.c.", "m.c.", "mkc", "bsdk", "bkl", "bck", "madarchod", 
+    "behenchod", "bhenchod", "bhosadike", "bhosdike", "bhosdiwale", "cunt", "fck", "stfu"
   ];
 
   const ADJECTIVE_SWEAR_WORDS = [
-    "chutiya", "saala", "kutta", "harami", "kamina", "randi", "bhadwa", "gandu", 
-    "lodu", "lnd", "lund", "chut", "gaand", "bhosdi", "tatte", "fuck", "fucking", 
-    "fucked", "fucker", "shit", "bitch", "asshole", "ass", "moron", "idiot", 
-    "retard", "scumbag", "dickhead", "bastard"
+    "chutiya", "chutiye", "ch**iya", "c-tiya", "bakchodi", "saala", "saale", "kutta", "kutte", 
+    "harami", "haraami", "kamina", "kaminey", "kamine", "randi", "bhadwa", "bhadwe", "gandu", "gndu", 
+    "lodu", "ldu", "laude", "lnd", "lund", "chut", "gaand", "bhosdi", "tatte", "jhaatu", "chod", 
+    "chodo", "chodna", "chudai", "chudwa", "gaandmasti", "dalaal", "suar", "suar ki aulad", 
+    "namak haram", "haraamzada", "bewakoof", "gadha", "ullu", "ullu ke patthe", "dimaag kharab", 
+    "pagal", "dhed shana", "chaprasi", "andhe", "bakwas", "chup kar", "aukaat", "aukat", "nikal", 
+    "chal nikal", "bhad me ja", "mar ja", "jahil", "nirlajj", 
+    "fuck", "fucking", "fucked", "fucker", "shit", "bitch", "asshole", "ass", "moron", "idiot", 
+    "retard", "scumbag", "dickhead", "bastard",
+    "kutte ki zat", "कुत्ते की ज़ात", "suar ki zat", "सूअर की ज़ात", "सूअर की औलाद",
+    "gadhe ki aulad", "गधे की औलाद", "gadhe ki zat", "गधे की ज़ात", "bandar ki aulad", "बंदर की औलाद", 
+    "bandar ki zat", "बंदर की ज़ात", "bhains ki aulad", "भैंस की औलाद", "bhains ki zat", "भैंस की ज़ात", 
+    "ullu ki zat", "उल्लू की ज़ात", "lomdi ki aulad", "लोमड़ी की औलाद", 
+    "lomdi ki zat", "लोमड़ी की ज़ात", "bhed ki aulad", "भेड़ की औलाद", "bhed ki zat", "भेड़ की ज़ात", 
+    "bakri ki aulad", "बकरी की औलाद", "bakri ki zat", "बकरी की ज़ात", "billi ki aulad", "बिल्ली की औलाद", 
+    "billi ki zat", "बिल्ली की ज़ात", "mendhak ki aulad", "मेंढक की औलाद", "mendhak ki zat", "मेंढक की ज़ात", 
+    "badir", "बदीर", "badirchand", "बदीरचंद", "bakland", "बकलैंड", "बकलंड", "bhandwa", "भंडवा", 
+    "भड़वा", "chinaal", "चिनाल", "छनाल", "चूतिया", "चुतिया", "ghasti", "घसटी", "घसति", "ghassad", 
+    "घसड़", "घस्सड़", "हरामी", "haram zada", "हरामज़ादा", "हरामजादा", "hijda", "हिजड़ा", "hijra", 
+    "tatti", "टट्टी", "चोद", "land", "लंड", "lode", "लोडे", "takke", "टक्के", "chakka", "छक्का", 
+    "faggot", "टट्टे", "raand", "रांड", "randhwa", "रंढवा", "jigolo", "जिगोलो", "रंडी", 
+    "चूत", "bund", "बंड", "गांडू", "gandi", "गांडी", "bhosdi wala", "भोसड़ी वाला", 
+    "bhonsri wala", "भोंसड़ी वाला", "bhosri wala", "भोसरी वाला", "boobley", "बूबले", "chuchi", "चुची", 
+    "chuuche", "चूचे", "chuchiyan", "चूचियां", "chut marike", "चूत मार के", "land marike", "लंड मार के", 
+    "gand mari ke", "गांड मारी के", "chodu", "चोदू", "lavda", "लौड़ा", "lawda", "लौंडा", "loda", "लोडा", 
+    "muth marna", "मुठ मारना", "muthi", "मुठी", "mutthal", "मुठल", "baable", "बाबले", "bur", "बुर", 
+    "चोदना", "chudna", "चुदना", "chud", "चुद", "buuble", "भड़वे", "bhadwon", "भड़वों", 
+    "bhadwi", "भड़वी", "bhadwapanti", "भड़वापंती", "chodela", "चोदेला", "marana", "मारना", "marani", "मारनी", 
+    "marane", "मारने", "gandphatu", "गांडफटू", "gandphati", "गांडफटी", "gandphata", "गांडफटा", "gandphaton", 
+    "गांडफटों", "गांडमस्ती", "gand marna", "गांड मारना", "gand maru", "गांड मारू", "gand mari", 
+    "गांड मारी", "gand marana", "गांड माराना", "jhaant", "झाँट", "gand phatu", "गांड फटू", "gand phati", "गांड फटी", 
+    "gand phata", "गांड फटा", "gand phaton", "गांड फटों", "gaand masti", "गांड मस्ती", "gandmarna", "गांडमरना", 
+    "gandmaru", "गांडमरू", "gandmarana", "गांडमराना", "gandmari", "गांडमारी", "randibazar", "रंडीबाज़ार", 
+    "chodo", "चोदो", "chodi", "चोदी", "chodne", "चोदने", "chodva", "चोदवा", "chudo", "चुदो", "chudi", "चुदी", 
+    "chudne", "चुदने", "chudva", "चुदवा", "chodai", "चोदाई", "chuda", "चुदा", "chudai", "चुदाई", "chudvana", 
+    "चुदवाना", "haramia", "हरामिया", "haramzada", "haramzadi", "हरामज़ादी", "haramkhor", "हरामख़ोर", "kamini", 
+    "कमीनी", "bhosdi", "भोसड़ी", "bhosdike", "भोसड़ीके", "bhandi", "भंडी", "rand", "randwa", 
+    "रांडवा", "randibazaar", "रांडिबाजार", "hijade", "हिजड़े", "gandu", "गंडू", "लवड़ा", "lundwa", "लंडवा", 
+    "chutmar", "चूतमार", "chutiyapa", "चूतियापा"
   ];
 
   const EUPHEMISTIC_THREATS = [
-    "send you to heaven", "sleep with the fishes", "put you in the ground", 
-    "send you to god", "meet your maker", "hunt you down", "know where you live",
-    "i will kill you", "slit your throat", "watch your back", "die in a fire"
+    "send you to heaven", "hunt you down", "will end you", "dig a grave", "put you in a body bag",
+    "sleep with the fishes", "put you in the ground", "send you to god", "meet your maker", 
+    "know where you live", "i will kill you", "slit your throat", "watch your back", "die in a fire"
   ];
 
   const LEET_MAP = {
@@ -292,6 +327,7 @@
     "stupid": "unhelpful",
     "hate": "strongly disagree with",
     "shut up": "let's pause for a moment",
+    "chup kar": "let's pause for a moment",
     "fuck off": "please give me space",
     "fuck you": "I strongly disagree with you",
     "fucking": "extremely",
@@ -299,10 +335,28 @@
     "crap": "low quality",
     "asshole": "unreasonable person",
     "chutiya": "confused person",
+    "chutiye": "confused person",
     "saala": "friend",
+    "saale": "friend",
     "gandu": "fellow",
     "bitch": "person",
-    "bastard": "individual"
+    "bastard": "individual",
+    "bewakoof": "uninformed person",
+    "gadha": "stubborn one",
+    "ullu": "friend",
+    "bakwas": "unhelpful discussion",
+    "nikal": "please leave",
+    "chal nikal": "let's move on",
+    "suar": "unpleasant individual",
+    "pagal": "excited",
+    "aukaat": "capability",
+    "aukat": "capability",
+    "bhosdi wala": "friend",
+    "bhosdike": "friend",
+    "kaminey": "friend",
+    "kamine": "friend",
+    "चूतिया": "confused person",
+    "हरामी": "mischievous person"
   };
 
   function normalizeLeetspeak(text) {
@@ -324,11 +378,35 @@
     return normalized;
   }
 
+  function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function buildCompiledWord(word, isFiller = false) {
+    const isDev = /[\u0900-\u097F]/.test(word);
+    const escaped = escapeRegex(word);
+    let testRegex, replaceRegex;
+    if (isDev) {
+      testRegex = new RegExp("(?<=^|[^\\p{L}\\p{N}])" + escaped + "(?=$|[^\\p{L}\\p{N}])", "ui");
+      replaceRegex = new RegExp("(?<=^|[^\\p{L}\\p{N}])" + escaped + "(?=$|[^\\p{L}\\p{N}])", "gui");
+    } else {
+      const prefix = /^\w/.test(word) ? "\\b" : "(?<=^|\\s)";
+      const suffix = /\w$/.test(word) ? "\\b" : "(?=$|\\s)";
+      testRegex = new RegExp(prefix + escaped + suffix, "i");
+      replaceRegex = new RegExp(prefix + escaped + suffix, "gi");
+    }
+    return { word, isFiller, testRegex, replaceRegex };
+  }
+
+  // Precompile word patterns once for sub-millisecond evaluation speed
+  const COMPILED_SWEARS = [
+    ...FILLER_SWEAR_WORDS.map(w => buildCompiledWord(w, true)),
+    ...ADJECTIVE_SWEAR_WORDS.map(w => buildCompiledWord(w, false))
+  ].sort((a, b) => b.word.length - a.word.length);
+
   function clientSideVibeAnalysis(rawText) {
     const normalized = normalizeLeetspeak(rawText);
     const lower = normalized.toLowerCase();
-    const cleanText = lower.replace(/[^\w\s]/g, " ");
-    const words = cleanText.split(/\s+/).filter(Boolean);
 
     let toxicReason = null;
     let isToxic = false;
@@ -344,17 +422,13 @@
       }
     }
 
-    // 2. Check Hinglish / English swear words and hostile expressions
+    // 2. High-performance check across compiled Hinglish, English, and Devanagari words
     if (!isToxic) {
-      for (const word of words) {
-        if (FILLER_SWEAR_WORDS.includes(word)) {
+      for (const item of COMPILED_SWEARS) {
+        if (item.testRegex.test(normalized)) {
           isToxic = true;
-          toxicReason = "Profanity detected";
-          if (!flaggedWords.includes(word)) flaggedWords.push(word);
-        } else if (ADJECTIVE_SWEAR_WORDS.includes(word) || REPHRASE_DICTIONARY.hasOwnProperty(word)) {
-          isToxic = true;
-          toxicReason = "Abusive / insulting language";
-          if (!flaggedWords.includes(word)) flaggedWords.push(word);
+          toxicReason = item.isFiller ? "Profanity detected" : "Abusive / insulting language";
+          if (!flaggedWords.includes(item.word)) flaggedWords.push(item.word);
         }
       }
     }
@@ -368,26 +442,18 @@
 
     // Neutralize euphemistic threats
     for (const threat of EUPHEMISTIC_THREATS) {
-      const reg = new RegExp(threat, "gi");
+      const reg = new RegExp(escapeRegex(threat), "gi");
       suggestion = suggestion.replace(reg, "resolve our disagreement calmly");
     }
 
-    // First strip filler swear words
-    for (const filler of FILLER_SWEAR_WORDS) {
-      const reg = new RegExp("\\b" + filler + "\\b", "gi");
-      suggestion = suggestion.replace(reg, "");
-    }
-
-    // Substitute words with polite variants
-    for (const [badWord, politeAlt] of Object.entries(REPHRASE_DICTIONARY)) {
-      const reg = new RegExp("\\b" + badWord + "\\b", "gi");
-      suggestion = suggestion.replace(reg, politeAlt);
-    }
-
-    // Replace remaining uncaught adjective swear words with polite asterisks
-    for (const swear of ADJECTIVE_SWEAR_WORDS) {
-      const reg = new RegExp("\\b" + swear + "\\b", "gi");
-      suggestion = suggestion.replace(reg, "***");
+    // Apply polite dictionary replacements and asterisks in length-descending order
+    for (const item of COMPILED_SWEARS) {
+      if (item.testRegex.test(suggestion)) {
+        const replacement = item.isFiller
+          ? ""
+          : (REPHRASE_DICTIONARY[item.word.toLowerCase()] || REPHRASE_DICTIONARY[item.word] || "***");
+        suggestion = suggestion.replace(item.replaceRegex, replacement);
+      }
     }
 
     // Clean up spacing and orphaned commas

@@ -121,9 +121,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.type === "CHECK_VIBE_BACKEND") {
     (async () => {
+      // 1. Try local server first
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1200);
+        const timeoutId = setTimeout(() => controller.abort(), 1000);
         const res = await fetch("http://127.0.0.1:8000/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -136,10 +137,78 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendResponse({ success: true, data });
           return;
         }
-        sendResponse({ success: false });
-      } catch (err) {
-        sendResponse({ success: false, error: err.message });
+      } catch {
+        // Local server not running
       }
+
+      // 2. Try Serverless Hugging Face API if token is configured
+      try {
+        const syncData = await chrome.storage.sync.get(["hfToken"]);
+        const token = (syncData && syncData.hfToken) ? syncData.hfToken.trim() : "";
+
+        if (token && !token.includes("PUT_YOUR_TOKEN_HERE")) {
+          const authHeader = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+          
+          // Call HF BERT toxicity model
+          const hfRes = await fetch("https://api-inference.huggingface.co/models/martin-ha/toxic-comment-model", {
+            method: "POST",
+            headers: { "Authorization": authHeader, "Content-Type": "application/json" },
+            body: JSON.stringify({ inputs: request.text })
+          });
+
+          if (hfRes.ok) {
+            const hfData = await hfRes.json();
+            let isToxic = false;
+            if (hfData && hfData.length > 0 && Array.isArray(hfData[0])) {
+              const toxicScore = hfData[0].find(d => d.label === "toxic");
+              if (toxicScore && toxicScore.score > 0.45) isToxic = true;
+            }
+
+            if (isToxic) {
+              // Call HF BART Detox Rephraser
+              let suggestion = request.text;
+              try {
+                const detoxRes = await fetch("https://api-inference.huggingface.co/models/s-nlp/bart-base-detox", {
+                  method: "POST",
+                  headers: { "Authorization": authHeader, "Content-Type": "application/json" },
+                  body: JSON.stringify({ inputs: request.text })
+                });
+                if (detoxRes.ok) {
+                  const detoxData = await detoxRes.json();
+                  if (detoxData && detoxData.length > 0 && detoxData[0].generated_text) {
+                    suggestion = detoxData[0].generated_text;
+                  }
+                }
+              } catch {}
+
+              sendResponse({
+                success: true,
+                data: {
+                  status: "toxic",
+                  reason: "Hugging Face Serverless AI",
+                  rephrase_suggestion: suggestion
+                }
+              });
+              return;
+            } else {
+              sendResponse({
+                success: true,
+                data: {
+                  status: "safe",
+                  reason: "none",
+                  rephrase_suggestion: request.text
+                }
+              });
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.debug("[Background] HF Serverless check error:", err);
+      }
+
+      // 3. Fallback to on-device engine
+      sendResponse({ success: false });
     })();
     return true;
   }

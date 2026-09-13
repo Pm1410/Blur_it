@@ -50,7 +50,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 1. Load saved settings from chrome.storage.sync
   if (chrome.storage && chrome.storage.sync) {
-    chrome.storage.sync.get(["enabled", "threshold", "vibeCheckEnabled"], (data) => {
+    chrome.storage.sync.get(["enabled", "threshold", "vibeCheckEnabled", "hfToken"], (data) => {
       const enabled = data.enabled !== undefined ? data.enabled : true;
       const vibeEnabled = data.vibeCheckEnabled !== undefined ? data.vibeCheckEnabled : true;
       const threshold = data.threshold !== undefined ? parseFloat(data.threshold) : 0.30;
@@ -61,6 +61,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (thresholdVal) thresholdVal.textContent = getThresholdLabel(threshold);
       updatePresetButtons(threshold);
       updateStatusDisplay(enabled);
+
+      const hfInput = document.getElementById("popup-hf-token");
+      if (hfInput && data.hfToken) {
+        hfInput.value = data.hfToken;
+      }
     });
   }
 
@@ -129,26 +134,95 @@ document.addEventListener("DOMContentLoaded", async () => {
   const popupResultReason = document.getElementById("popup-result-reason");
   const popupResultSuggestion = document.getElementById("popup-result-suggestion");
 
-  const FILLER_SWEARS = ["mc", "bc", "mkc", "bsdk", "bhosdike", "madarchod", "behenchod", "bkl", "cunt", "stfu"];
+  const FILLER_SWEARS = [
+    "mc", "bc", "b.c.", "m.c.", "mkc", "bsdk", "bkl", "bck", "madarchod", 
+    "behenchod", "bhenchod", "bhosadike", "bhosdike", "bhosdiwale", "cunt", "fck", "stfu"
+  ];
   const ADJ_SWEARS = [
-    "chutiya", "saala", "kutta", "harami", "kamina", "randi", "bhadwa", "gandu",
-    "lodu", "lnd", "lund", "chut", "gaand", "bhosdi", "tatte", "fuck", "fucking",
-    "fucked", "shit", "bitch", "asshole", "ass", "moron", "idiot", "retard", "bastard"
+    "chutiya", "chutiye", "ch**iya", "c-tiya", "bakchodi", "saala", "saale", "kutta", "kutte", 
+    "harami", "haraami", "kamina", "kaminey", "kamine", "randi", "bhadwa", "bhadwe", "gandu", "gndu", 
+    "lodu", "ldu", "laude", "lnd", "lund", "chut", "gaand", "bhosdi", "tatte", "jhaatu", "chod", 
+    "chodo", "chodna", "chudai", "chudwa", "gaandmasti", "dalaal", "suar", "suar ki aulad", 
+    "namak haram", "haraamzada", "bewakoof", "gadha", "ullu", "ullu ke patthe", "dimaag kharab", 
+    "pagal", "dhed shana", "chaprasi", "andhe", "bakwas", "chup kar", "aukaat", "aukat", "nikal", 
+    "chal nikal", "bhad me ja", "mar ja", "jahil", "nirlajj", 
+    "fuck", "fucking", "fucked", "fucker", "shit", "bitch", "asshole", "ass", "moron", "idiot", 
+    "retard", "scumbag", "dickhead", "bastard",
+    "kutte ki zat", "कुत्ते की ज़ात", "suar ki zat", "सूअर की ज़ात", "सूअर की औलाद",
+    "gadhe ki aulad", "गधे की औलाद", "gadhe ki zat", "गधे की ज़ात", "bandar ki aulad", "बंदर की औलाद", 
+    "bandar ki zat", "बंदर की ज़ात", "bhains ki aulad", "भैंस की औलाद", "bhains ki zat", "भैंस की ज़ात", 
+    "ullu ki zat", "उल्लू की ज़ात", "lomdi ki aulad", "लोमड़ी की औलाद", 
+    "lomdi ki zat", "लोमड़ी की ज़ात", "bhed ki aulad", "भेड़ की औलाद", "bhed ki zat", "भेड़ की ज़ात", 
+    "bakri ki aulad", "बकरी की औलाद", "bakri ki zat", "बकरी की ज़ात", "billi ki aulad", "बिल्ली की औलाद", 
+    "billi ki zat", "बिल्ली की ज़ात", "mendhak ki aulad", "मेंढक की औलाद", "mendhak ki zat", "मेंढक की ज़ात", 
+    "badir", "बदीर", "badirchand", "बदीरचंद", "bakland", "बकलैंड", "बकलंड", "bhandwa", "भंडवा", 
+    "भड़वा", "chinaal", "चिनाल", "छनाल", "चूतिया", "चुतिया", "ghasti", "घसटी", "घसति", "ghassad", 
+    "घसड़", "घस्सड़", "हरामी", "haram zada", "हरामज़ादा", "हरामजादा", "hijda", "हिजड़ा", "hijra", 
+    "tatti", "टट्टी", "चोद", "land", "लंड", "lode", "लोडे", "takke", "टक्के", "chakka", "छक्का", 
+    "faggot", "टट्टे", "raand", "रांड", "randhwa", "रंढवा", "jigolo", "जिगोलो", "रंडी", 
+    "चूत", "bund", "बंड", "गांडू", "gandi", "गांडी", "bhosdi wala", "भोसड़ी वाला", 
+    "bhonsri wala", "भोंसड़ी वाला", "bhosri wala", "भोसरी वाला", "boobley", "बूबले", "chuchi", "चुची", 
+    "chuuche", "चूचे", "chuchiyan", "चूचियां", "chut marike", "चूत मार के", "land marike", "लंड मार के", 
+    "gand mari ke", "गांड मारी के", "chodu", "चोदू", "lavda", "लौड़ा", "lawda", "लौंडा", "loda", "लोडा", 
+    "muth marna", "मुठ मारना", "muthi", "मुठी", "mutthal", "मुठल", "baable", "बाबले", "bur", "बुर", 
+    "चोदना", "chudna", "चुदना", "chud", "चुद", "buuble", "भड़वे", "bhadwon", "भड़वों", 
+    "bhadwi", "भड़वी", "bhadwapanti", "भड़वापंती", "chodela", "चोदेला", "marana", "मारना", "marani", "मारनी", 
+    "marane", "मारने", "gandphatu", "गांडफटू", "gandphati", "गांडफटी", "gandphata", "गांडफटा", "gandphaton", 
+    "गांडफटों", "गांडमस्ती", "gand marna", "गांड मारना", "gand maru", "गांड मारू", "gand mari", 
+    "गांड मारी", "gand marana", "गांड माराना", "jhaant", "झाँट", "gand phatu", "गांड फटू", "gand phati", "गांड फटी", 
+    "gand phata", "गांड फटा", "gand phaton", "गांड फटों", "gaand masti", "गांड मस्ती", "gandmarna", "गांडमरना", 
+    "gandmaru", "गांडमरू", "gandmarana", "गांडमराना", "gandmari", "गांडमारी", "randibazar", "रंडीबाज़ार", 
+    "chodo", "चोदो", "chodi", "चोदी", "chodne", "चोदने", "chodva", "चोदवा", "chudo", "चुदो", "chudi", "चुदी", 
+    "chudne", "चुदने", "chudva", "चुदवा", "chodai", "चोदाई", "chuda", "चुदा", "chudai", "चुदाई", "chudvana", 
+    "चुदवाना", "haramia", "हरामिया", "haramzada", "haramzadi", "हरामज़ादी", "haramkhor", "हरामख़ोर", "kamini", 
+    "कमीनी", "bhosdi", "भोसड़ी", "bhosdike", "भोसड़ीके", "bhandi", "भंडी", "rand", "randwa", 
+    "रांडवा", "randibazaar", "रांडिबाजार", "hijade", "हिजड़े", "gandu", "गंडू", "लवड़ा", "lundwa", "लंडवा", 
+    "chutmar", "चूतमार", "chutiyapa", "चूतियापा"
   ];
   const THREATS = [
-    "send you to heaven", "sleep with the fishes", "put you in the ground",
-    "send you to god", "meet your maker", "hunt you down", "know where you live",
-    "i will kill you", "slit your throat", "die in a fire"
+    "send you to heaven", "hunt you down", "will end you", "dig a grave", "put you in a body bag",
+    "sleep with the fishes", "put you in the ground", "send you to god", "meet your maker", 
+    "know where you live", "i will kill you", "slit your throat", "watch your back", "die in a fire"
   ];
   const REPHRASE_MAP = {
     "idiot": "misguided person", "idiots": "those who disagree",
     "moron": "misinformed person", "morons": "misinformed people",
     "stupid": "unhelpful", "hate": "disagree with",
-    "shut up": "let's pause for a moment", "fuck off": "please give me space",
-    "fuck you": "I disagree with you", "fucking": "extremely",
+    "shut up": "let's pause for a moment", "chup kar": "let's pause for a moment",
+    "fuck off": "please give me space", "fuck you": "I disagree with you", "fucking": "extremely",
     "shit": "subpar", "crap": "low quality", "asshole": "unreasonable person",
-    "chutiya": "confused person", "saala": "friend", "gandu": "fellow"
+    "chutiya": "confused person", "chutiye": "confused person", "saala": "friend", "saale": "friend", 
+    "gandu": "fellow", "bewakoof": "uninformed person", "gadha": "stubborn one", "ullu": "friend",
+    "bakwas": "unhelpful discussion", "nikal": "please leave", "chal nikal": "let's move on",
+    "suar": "unpleasant individual", "pagal": "excited", "aukaat": "capability", "aukat": "capability",
+    "bhosdi wala": "friend", "bhosdike": "friend", "kaminey": "friend", "kamine": "friend",
+    "चूतिया": "confused person", "हरामी": "mischievous person"
   };
+
+  function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function buildCompiledWord(word, isFiller = false) {
+    const isDev = /[\u0900-\u097F]/.test(word);
+    const escaped = escapeRegex(word);
+    let testRegex, replaceRegex;
+    if (isDev) {
+      testRegex = new RegExp("(?<=^|[^\\p{L}\\p{N}])" + escaped + "(?=$|[^\\p{L}\\p{N}])", "ui");
+      replaceRegex = new RegExp("(?<=^|[^\\p{L}\\p{N}])" + escaped + "(?=$|[^\\p{L}\\p{N}])", "gui");
+    } else {
+      const prefix = /^\w/.test(word) ? "\\b" : "(?<=^|\\s)";
+      const suffix = /\w$/.test(word) ? "\\b" : "(?=$|\\s)";
+      testRegex = new RegExp(prefix + escaped + suffix, "i");
+      replaceRegex = new RegExp(prefix + escaped + suffix, "gi");
+    }
+    return { word, isFiller, testRegex, replaceRegex };
+  }
+
+  const COMPILED_SWEARS = [
+    ...FILLER_SWEARS.map(w => buildCompiledWord(w, true)),
+    ...ADJ_SWEARS.map(w => buildCompiledWord(w, false))
+  ].sort((a, b) => b.word.length - a.word.length);
 
   function clientDetox(text) {
     let normalized = text
@@ -159,8 +233,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       .replace(/b[\*_\-\.]+sdk/gi, "bsdk");
 
     const lower = normalized.toLowerCase();
-    const words = lower.replace(/[^\w\s]/g, " ").split(/\s+/).filter(Boolean);
-
     let isToxic = false;
     let reason = "Safe";
 
@@ -173,14 +245,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (!isToxic) {
-      for (const w of words) {
-        if (FILLER_SWEARS.includes(w)) {
+      for (const item of COMPILED_SWEARS) {
+        if (item.testRegex.test(normalized)) {
           isToxic = true;
-          reason = "Profanity";
-          break;
-        } else if (ADJ_SWEARS.includes(w) || REPHRASE_MAP.hasOwnProperty(w)) {
-          isToxic = true;
-          reason = "Abusive term";
+          reason = item.isFiller ? "Profanity" : "Abusive language";
           break;
         }
       }
@@ -192,16 +260,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     let suggestion = normalized;
     for (const t of THREATS) {
-      suggestion = suggestion.replace(new RegExp(t, "gi"), "resolve our disagreement calmly");
+      suggestion = suggestion.replace(new RegExp(escapeRegex(t), "gi"), "resolve our disagreement calmly");
     }
-    for (const f of FILLER_SWEARS) {
-      suggestion = suggestion.replace(new RegExp("\\b" + f + "\\b", "gi"), "");
-    }
-    for (const [bad, polite] of Object.entries(REPHRASE_MAP)) {
-      suggestion = suggestion.replace(new RegExp("\\b" + bad + "\\b", "gi"), polite);
-    }
-    for (const s of ADJ_SWEARS) {
-      suggestion = suggestion.replace(new RegExp("\\b" + s + "\\b", "gi"), "***");
+    for (const item of COMPILED_SWEARS) {
+      if (item.testRegex.test(suggestion)) {
+        const replacement = item.isFiller
+          ? ""
+          : (REPHRASE_MAP[item.word.toLowerCase()] || REPHRASE_MAP[item.word] || "***");
+        suggestion = suggestion.replace(item.replaceRegex, replacement);
+      }
     }
     suggestion = suggestion.replace(/\s*,\s*,+/g, ",").replace(/\s*,\s*/g, ", ").replace(/\s{2,}/g, " ").trim();
 
@@ -328,4 +395,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     });
   });
+
+  // 7. Save HF Token
+  const saveHfBtn = document.getElementById("popup-save-hf-btn");
+  if (saveHfBtn) {
+    saveHfBtn.addEventListener("click", () => {
+      const hfInput = document.getElementById("popup-hf-token");
+      const token = hfInput ? hfInput.value.trim() : "";
+      if (chrome.storage && chrome.storage.sync) {
+        chrome.storage.sync.set({ hfToken: token }, () => {
+          saveHfBtn.textContent = "Saved!";
+          setTimeout(() => saveHfBtn.textContent = "Save", 1500);
+        });
+      }
+    });
+  }
 });

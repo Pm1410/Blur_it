@@ -1,0 +1,29 @@
+{
+  "manifest_version": 2,
+  "name": "CYHI Toxicity Filter",
+  "version": "1.0",
+  "description": "Checks drafts before they go out and offers polite rephrases, plus offline AI image filtering.",
+  "permissions": ["<all_urls>", "storage"],
+  "background": {
+    "scripts": ["ort.min.js", "offscreen.js"],
+    "persistent": true
+  },
+  "content_security_policy": "script-src 'self' 'unsafe-eval' 'wasm-eval'; object-src 'self';",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["styles.css"]
+    }
+  ],
+  "web_accessible_resources": [
+    "models/*",
+    "*.wasm"
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "vibechecker@cyhi.com",
+      "strict_min_version": "109.0"
+    }
+  }
+}

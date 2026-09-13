@@ -1,0 +1,181 @@
+/* Unified styles.css for Vibe Checker + Feed Scanner */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap');
+
+#cyhi-sidebar {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    height: 45px;
+    width: 120px; /* Collapsed: V-C (60) + Rating (60) */
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.2); 
+    border-radius: 12px; /* Squarish with rounded corners */
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    z-index: 2147483647;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#cyhi-sidebar.expanded {
+    width: 350px; /* Expanded: 4 icons (180) + Vibe Check (110) + Rating (60) */
+}
+
+.cyhi-tool {
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid rgba(255, 255, 255, 0.1); 
+    color: #ffffff; /* Bright white */
+    font-family: 'Roboto', 'Segoe UI', sans-serif;
+    font-size: 18px; /* Slightly smaller to fit 45px height */
+    font-weight: 700; /* Bold, but clean */
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    /* Clean monochrome filter but full brightness */
+    filter: grayscale(100%) contrast(200%);
+}
+.cyhi-tool:last-child {
+    border-right: none;
+}
+.cyhi-tool:hover {
+    background: rgba(255, 255, 255, 0.15); 
+}
+.cyhi-tool.active {
+    background: rgba(255, 255, 255, 0.3);
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+}
+
+.cyhi-tool-icon {
+    width: 45px;
+    min-width: 45px;
+}
+
+#btn-vibe-check {
+    width: 60px;
+    min-width: 60px;
+    font-size: 15px;
+    letter-spacing: 0px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+#cyhi-sidebar.expanded #btn-vibe-check {
+    width: 110px;
+    min-width: 110px;
+}
+
+#cyhi-rating-box {
+    width: 60px;
+    min-width: 60px;
+    font-size: 18px;
+    color: #fff !important;
+    background: transparent;
+    filter: none; 
+}
+#cyhi-rating-box:hover {
+    background: rgba(255, 255, 255, 0.1); 
+}
+
+/* Blur Rules */
+.cyhi-blurred {
+    filter: blur(6px) grayscale(100%);
+    opacity: 0.7;
+    transition: all 0.3s ease;
+}
+body.cyhi-paused .cyhi-blurred {
+    filter: none !important;
+    opacity: 1 !important;
+}
+.cyhi-unblurred-override {
+    filter: none !important;
+    opacity: 1 !important;
+    border: 1px dashed rgba(255, 255, 255, 0.6);
+    border-radius: 4px;
+}
+body.cyhi-mode-hoverer { cursor: crosshair !important; }
+body.cyhi-mode-unblur .cyhi-blurred { cursor: pointer !important; }
+body.cyhi-mode-unblur .cyhi-blurred:hover { box-shadow: 0 0 10px rgba(255, 255, 255, 0.3); border-radius: 4px; }
+
+/* Image Blur Mode Rules */
+.cyhi-image-blurred {
+    filter: blur(40px) brightness(0.4) !important;
+    transition: filter 0.25s ease !important;
+    cursor: pointer !important;
+}
+.cyhi-image-blurred.cyhi-image-revealed {
+    filter: none !important;
+    outline: 2px dashed rgba(255, 255, 255, 0.8) !important;
+    outline-offset: -2px;
+}
+.cyhi-image-blurred:hover {
+    box-shadow: 0 0 15px rgba(255,255,255,0.4);
+}
+
+
+/* Popup Box */
+#cyhi-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 18px;
+  z-index: 2147483647;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+  font-family: 'Roboto', 'Segoe UI', sans-serif;
+  width: 340px;
+  display: none;
+  color: #ffffff;
+}
+.cyhi-header {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 12px;
+  letter-spacing: 1px;
+}
+.cyhi-suggestion {
+  font-size: 14px;
+  color: #e0e0e0;
+  margin-bottom: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  line-height: 1.5;
+}
+.cyhi-btn {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 13px;
+  margin-right: 10px;
+  transition: all 0.2s ease;
+  font-family: 'Roboto', 'Segoe UI', sans-serif;
+}
+.cyhi-accept { 
+  background: rgba(255, 255, 255, 0.9);
+  color: black;
+}
+.cyhi-accept:hover {
+  background: white;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+.cyhi-ignore { 
+  background: transparent;
+  color: #fff;
+}
+.cyhi-ignore:hover {
+  background: rgba(255, 255, 255, 0.1);
+}

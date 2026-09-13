@@ -681,8 +681,6 @@
         tooltip.style.display = "none";
         const tgt = inputEl && document.body.contains(inputEl) ? inputEl : activeDraftInput;
         await applyTextReplacement(tgt, result.suggestion);
-        try { await navigator.clipboard.writeText(result.suggestion); } catch {}
-        showToast("✨ Text updated with polite alternative");
         setTimeout(() => { document.getElementById("aimi-btn-replace").disabled = false; }, 600);
         if (chrome.storage?.local) {
           chrome.storage.local.get(["aimiStats"], (d) => {
@@ -772,15 +770,7 @@
     } finally { setTimeout(()=>{_replacing=false;},250); }
   }
 
-  /* ══════════════════════════════════════════════════════════════
-   *  TOAST NOTIFICATION
-   * ══════════════════════════════════════════════════════════════ */
-  function showToast(msg) {
-    const t = document.createElement("div"); t.className = "aimi-toast";
-    t.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg><span>${msg}</span>`;
-    document.body.appendChild(t);
-    setTimeout(()=>{t.style.transition="opacity 0.3s,transform 0.3s";t.style.opacity="0";t.style.transform="translateY(8px)";setTimeout(()=>t.remove(),350);},2800);
-  }
+
 
   /* ══════════════════════════════════════════════════════════════
    *  INIT

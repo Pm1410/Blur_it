@@ -88,6 +88,12 @@ allEnglishToxics.sort((a, b) => b.length - a.length);
 const englishSevere = ["asshole", "bastard", "bitch", "cunt", "dick", "fag", "faggot", "fuck", "fucker", "fucking", "motherfucker", "nigga", "nigger", "pussy", "slut", "whore", "kill yourself", "kys", "prostitute", "penis"];
 const englishMild = ["ass", "bullshit", "crap", "craphead", "creep", "dolt", "dunce", "fatass", "freak", "garbage", "idiot", "idiotic", "ignorant", "loser", "lunatic", "moron", "moronic", "nerd", "pathetic", "rubbish", "scumbag", "shit", "shitty", "shut up", "simp", "trash", "troll", "ugly", "useless"];
 
+const englishThreats = [
+    "send you to heaven", "hunt you down", "will end you", "dig a grave", "put you in a body bag",
+    "sleep with the fishes", "put you in the ground", "send you to god", "meet your maker",
+    "know where you live", "i will kill you", "slit your throat", "watch your back", "die in a fire"
+];
+
 
 // --- INJECT UNIFIED UI ---
 
@@ -339,12 +345,13 @@ function makeSafeRegex(word) {
 
 function calculateScore(text) {
     let score = 0;
+    let lower = text.toLowerCase();
+    englishThreats.forEach(word => { if (lower.includes(word)) score += 100; });
     hinglish_swear_words.forEach(word => { if (makeSafeRegex(word).test(text)) score += 90; });
     englishSevere.forEach(word => { if (makeSafeRegex(word).test(text)) score += 90; });
     englishMild.forEach(word => { if (makeSafeRegex(word).test(text)) score += 40; });
     return Math.min(score, 100);
 }
-
 
 // --- OBJECTIVE 4: VIBE CHECK BEFORE POSTING ---
 
@@ -362,6 +369,12 @@ vibeButton.addEventListener('click', async () => {
     let politeVersion = normalized;
     let lowerNorm = normalized.toLowerCase();
     
+    for (let threat of englishThreats) {
+        if (lowerNorm.includes(threat)) {
+            isToxic = true;
+            politeVersion = politeVersion.replace(new RegExp(escapeRegExp(threat), 'gi'), 'calm down and resolve this peacefully');
+        }
+    }
     for (const [toxic, polite] of Object.entries(englishReplacementMap)) {
         if (lowerNorm.includes(toxic.toLowerCase())) {
             isToxic = true;

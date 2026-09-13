@@ -238,6 +238,15 @@ btnUnblur.addEventListener('click', () => {
 const processedImgs = new WeakSet();
 
 async function processSmartImage(img) {
+    // If we already classified this image previously, use the cached result instantly
+    if (img.dataset.cyhiUnsafe === "true") {
+        if (imageBlurMode) img.classList.add('cyhi-image-blurred');
+        return;
+    }
+    if (img.dataset.cyhiUnsafe === "false") {
+        return; // Already known to be safe
+    }
+
     if (!img.complete || (img.naturalWidth === 0 && img.width === 0)) {
         img.addEventListener("load", () => processSmartImage(img), {once:true}); 
         return;
@@ -247,6 +256,7 @@ async function processSmartImage(img) {
     const rawUrl = img.currentSrc || img.src;
     if (!rawUrl) return; 
 
+    // Prevent spamming the background worker for the same image while waiting for a response
     if (processedImgs.has(img)) return;
     processedImgs.add(img);
 
@@ -255,10 +265,15 @@ async function processSmartImage(img) {
         url: rawUrl,
         threshold: 0.30
     }, (response) => {
-        if (response && response.success && response.result.isUnsafe) {
-            img.classList.add('cyhi-image-blurred');
-            // Log it for the hackathon judges in the console!
-            console.log(`[Smart Image Scanner] Blurred unsafe image: Confidence ${(response.result.confidence * 100).toFixed(1)}%`);
+        if (response && response.success) {
+            if (response.result.isUnsafe) {
+                img.dataset.cyhiUnsafe = "true";
+                // Only apply the blur if the mode is still active!
+                if (imageBlurMode) img.classList.add('cyhi-image-blurred');
+                console.log(`[Smart Image Scanner] Blurred unsafe image: Confidence ${(response.result.confidence * 100).toFixed(1)}%`);
+            } else {
+                img.dataset.cyhiUnsafe = "false";
+            }
         }
     });
 }

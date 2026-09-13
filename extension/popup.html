@@ -30,7 +30,7 @@
     <!-- Main Shield Card (Images) -->
     <section class="shield-card">
       <div class="shield-card-left">
-        <span class="shield-heading">Visual Shield</span>
+        <span class="shield-heading">Visual Image Shield</span>
         <span class="shield-subheading" id="shield-subtext">Images scanned & blurred locally</span>
       </div>
       <label class="switch" aria-label="Toggle visual protection">
@@ -39,16 +39,34 @@
       </label>
     </section>
 
-    <!-- Message Vibe Check Card -->
+    <!-- Text & Message Filter Card -->
     <section class="shield-card" style="margin-top: 10px;">
       <div class="shield-card-left">
-        <span class="shield-heading">Draft Vibe Check</span>
-        <span class="shield-subheading" id="vibe-subtext">Pre-post toxicity & polite detox</span>
+        <span class="shield-heading">Text & Message Filter</span>
+        <span class="shield-subheading" id="vibe-subtext">Pre-draft toxicity detection & rephrase</span>
       </div>
-      <label class="switch" aria-label="Toggle message vibe check">
+      <label class="switch" aria-label="Toggle text filter">
         <input type="checkbox" id="vibe-toggle" checked>
         <span class="switch-slider"></span>
       </label>
+    </section>
+
+    <!-- Direct In-Popup Text Checker -->
+    <section class="quick-text-section" id="quick-text-section">
+      <div class="quick-text-header">
+        <span class="quick-text-title">Quick Text Vibe Test</span>
+      </div>
+      <div class="quick-text-input-wrap">
+        <input type="text" id="popup-text-input" placeholder="Type or paste draft text to test..." />
+        <button type="button" id="popup-check-btn">Check</button>
+      </div>
+      <div class="quick-text-result" id="popup-text-result" style="display: none;">
+        <div class="result-status-row">
+          <span class="result-badge" id="popup-result-badge">Safe</span>
+          <span class="result-reason" id="popup-result-reason"></span>
+        </div>
+        <div class="result-suggestion" id="popup-result-suggestion"></div>
+      </div>
     </section>
 
     <!-- Metrics Grid -->

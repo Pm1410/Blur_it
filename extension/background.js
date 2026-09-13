@@ -7,9 +7,12 @@ const DEFAULT_SETTINGS = {
   enabled: true,
   threshold: 0.35,
   blurAmount: 20,
+  vibeCheckEnabled: true,
+  textFilterEnabled: true,
   stats: {
     scanned: 0,
-    blurred: 0
+    blurred: 0,
+    vibeCheckedCount: 0
   }
 };
 

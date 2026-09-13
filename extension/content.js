@@ -549,17 +549,19 @@
       }
     }, true);
 
-    // Sync settings for vibe check
+    // Sync settings for vibe check / text filter
     if (chrome.storage && chrome.storage.sync) {
-      chrome.storage.sync.get(["vibeCheckEnabled"], (data) => {
-        if (typeof data.vibeCheckEnabled === "boolean") {
-          vibeCheckEnabled = data.vibeCheckEnabled;
-          if (!vibeCheckEnabled) vibeBtn.classList.add("blur-it-hidden");
-        }
+      chrome.storage.sync.get(["vibeCheckEnabled", "textFilterEnabled"], (data) => {
+        const isVibe = data.textFilterEnabled !== undefined
+          ? data.textFilterEnabled
+          : (data.vibeCheckEnabled !== undefined ? data.vibeCheckEnabled : true);
+        vibeCheckEnabled = isVibe;
+        if (!vibeCheckEnabled) vibeBtn.classList.add("blur-it-hidden");
       });
       chrome.storage.onChanged.addListener((changes, area) => {
-        if (area === "sync" && changes.vibeCheckEnabled) {
-          vibeCheckEnabled = changes.vibeCheckEnabled.newValue;
+        if (area === "sync" && (changes.vibeCheckEnabled || changes.textFilterEnabled)) {
+          const newVal = changes.textFilterEnabled ? changes.textFilterEnabled.newValue : changes.vibeCheckEnabled.newValue;
+          vibeCheckEnabled = newVal;
           if (vibeCheckEnabled) {
             vibeBtn.classList.remove("blur-it-hidden");
           } else {

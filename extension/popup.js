@@ -252,10 +252,39 @@ document.addEventListener("DOMContentLoaded", async () => {
       popupResultReason.textContent = result.reason;
     }
 
+    let lastSuggestion = result.suggestion;
+    const popupResultActions = document.getElementById("popup-result-actions");
+    const popupReplaceBtn = document.getElementById("popup-replace-btn");
+    const popupCopyBtn = document.getElementById("popup-copy-btn");
+
     if (popupResultSuggestion) {
       popupResultSuggestion.textContent = result.isToxic
         ? `Suggestion: "${result.suggestion}"`
         : "Message is safe to publish.";
+    }
+
+    if (popupResultActions) {
+      popupResultActions.style.display = result.isToxic ? "flex" : "none";
+    }
+
+    if (popupReplaceBtn) {
+      popupReplaceBtn.onclick = () => {
+        if (popupTextInput && lastSuggestion) {
+          popupTextInput.value = lastSuggestion;
+          popupResultSuggestion.textContent = "✅ Text updated in input box!";
+          popupResultActions.style.display = "none";
+        }
+      };
+    }
+
+    if (popupCopyBtn) {
+      popupCopyBtn.onclick = () => {
+        if (lastSuggestion) {
+          navigator.clipboard.writeText(lastSuggestion);
+          popupCopyBtn.textContent = "Copied!";
+          setTimeout(() => popupCopyBtn.textContent = "Copy", 1500);
+        }
+      };
     }
 
     // Update stats

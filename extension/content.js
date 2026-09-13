@@ -599,19 +599,95 @@
       }
       tooltip.style.left = Math.max(10, left) + "px";
 
-      // Replace button handler
-      const replaceBtn = document.getElementById("blur-it-btn-replace");
-      replaceBtn.onclick = () => {
-        const replacement = result.suggestion;
-        if (targetElement.isContentEditable) {
-          targetElement.innerText = replacement;
-        } else {
-          targetElement.value = replacement;
+      // Multi-framework bulletproof text replacement
+      function applyTextReplacement(target, newText) {
+        if (!target) return false;
+
+        // 1. Contenteditable elements (WhatsApp Web, Twitter/X, Discord, Slack, Lexical, Draft.js)
+        const contentEditableRoot = target.isContentEditable 
+          ? (target.closest ? (target.closest('[contenteditable="true"]') || target) : target)
+          : (target.closest ? target.closest('[contenteditable="true"]') : null);
+
+        if (contentEditableRoot) {
+          contentEditableRoot.focus();
+          let replaced = false;
+          try {
+            const range = document.createRange();
+            range.selectNodeContents(contentEditableRoot);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            replaced = document.execCommand("insertText", false, newText);
+          } catch (e) {
+            console.debug("execCommand CE error:", e);
+          }
+
+          if (!replaced || (contentEditableRoot.innerText.trim() !== newText.trim())) {
+            contentEditableRoot.innerText = newText;
+            contentEditableRoot.textContent = newText;
+          }
+
+          try {
+            contentEditableRoot.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true, inputType: "insertReplacementText", data: newText }));
+          } catch {
+            contentEditableRoot.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+          contentEditableRoot.dispatchEvent(new Event("change", { bubbles: true }));
+          return true;
         }
 
-        // Trigger reactive input events for frameworks
-        targetElement.dispatchEvent(new Event("input", { bubbles: true }));
-        targetElement.dispatchEvent(new Event("change", { bubbles: true }));
+        // 2. Standard Input & Textarea (supports React 16+, Vue, Angular controlled inputs)
+        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || "value" in target) {
+          target.focus();
+          let replaced = false;
+
+          try {
+            if (target.select) target.select();
+            if (target.setSelectionRange) target.setSelectionRange(0, target.value.length);
+            replaced = document.execCommand("insertText", false, newText);
+          } catch (e) {
+            console.debug("execCommand input error:", e);
+          }
+
+          // React native prototype setter fallback
+          try {
+            const proto = target.tagName === "TEXTAREA" 
+              ? window.HTMLTextAreaElement.prototype 
+              : window.HTMLInputElement.prototype;
+            const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+            if (setter) {
+              setter.call(target, newText);
+            } else {
+              target.value = newText;
+            }
+          } catch {
+            target.value = newText;
+          }
+
+          try {
+            target.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true, inputType: "insertReplacementText", data: newText }));
+          } catch {
+            target.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+          target.dispatchEvent(new Event("change", { bubbles: true }));
+          return true;
+        }
+
+        // 3. Fallback
+        target.innerText = newText;
+        target.textContent = newText;
+        return true;
+      }
+
+      // Replace button handler
+      const replaceBtn = document.getElementById("blur-it-btn-replace");
+      replaceBtn.onclick = (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        const replacement = result.suggestion;
+        applyTextReplacement(targetElement, replacement);
 
         tooltip.style.display = "none";
         showToast("✨ Text safely replaced with constructive version!");
@@ -628,7 +704,11 @@
       };
 
       // Ignore button handler
-      document.getElementById("blur-it-btn-dismiss").onclick = () => {
+      document.getElementById("blur-it-btn-dismiss").onclick = (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
         tooltip.style.display = "none";
       };
     }

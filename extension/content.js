@@ -718,49 +718,29 @@
 
         if (ceRoot) {
           ceRoot.focus();
-          let success = false;
 
-          // Strategy A: Native SelectAll + insertText (Meta Lexical accepts this natively)
+          // Select entire content of editable element
+          const range = document.createRange();
+          range.selectNodeContents(ceRoot);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+
+          // Clear selection first
           try {
-            document.execCommand("selectAll", false, null);
-            success = document.execCommand("insertText", false, newText);
+            document.execCommand("delete", false, null);
           } catch (e) {}
 
-          // Strategy B: ClipboardEvent paste (Lexical / Draft.js always accepts synthetic paste)
-          if (!success || ceRoot.innerText.trim() !== newText.trim()) {
-            try {
-              const dt = new DataTransfer();
-              dt.setData("text/plain", newText);
-              const pasteEv = new ClipboardEvent("paste", {
-                bubbles: true,
-                cancelable: true,
-                clipboardData: dt
-              });
-              document.execCommand("selectAll", false, null);
-              ceRoot.dispatchEvent(pasteEv);
-              if (ceRoot.innerText.trim() === newText.trim()) success = true;
-            } catch (e) {}
-          }
+          // Insert clean replacement
+          let inserted = false;
+          try {
+            inserted = document.execCommand("insertText", false, newText);
+          } catch (e) {}
 
-          // Strategy C: Target child span/paragraph directly if Lexical structure exists
-          if (!success || ceRoot.innerText.trim() !== newText.trim()) {
-            try {
-              const span = ceRoot.querySelector('span[data-lexical-text="true"]') || ceRoot.querySelector('p') || ceRoot;
-              const range = document.createRange();
-              range.selectNodeContents(span);
-              const sel = window.getSelection();
-              sel.removeAllRanges();
-              sel.addRange(range);
-              success = document.execCommand("insertText", false, newText);
-            } catch (e) {}
-          }
-
-          // Strategy D: Direct assignment fallback
-          if (!success || ceRoot.innerText.trim() !== newText.trim()) {
+          if (!inserted || ceRoot.innerText.trim() !== newText.trim()) {
             ceRoot.innerText = newText;
           }
 
-          // Fire standard reactive events
           try {
             ceRoot.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, cancelable: true, inputType: "insertReplacementText", data: newText }));
           } catch {}
@@ -777,20 +757,22 @@
         if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || "value" in target) {
           target.focus();
 
+          if (target.select) target.select();
+          if (target.setSelectionRange) target.setSelectionRange(0, target.value.length);
+
           // Reset React _valueTracker so React component state updates and enables the "Post" button
           if (target._valueTracker) {
-            target._valueTracker.setValue(target.value + "_forced_change");
+            target._valueTracker.setValue(target.value + "_forced");
           }
 
-          let execSuccess = false;
+          let inserted = false;
           try {
-            if (target.select) target.select();
-            if (target.setSelectionRange) target.setSelectionRange(0, target.value.length);
-            execSuccess = document.execCommand("insertText", false, newText);
+            document.execCommand("delete", false, null);
+            inserted = document.execCommand("insertText", false, newText);
           } catch (e) {}
 
           // Native prototype setter fallback
-          if (!execSuccess || target.value !== newText) {
+          if (!inserted || target.value !== newText) {
             try {
               const proto = target.tagName === "TEXTAREA" 
                 ? window.HTMLTextAreaElement.prototype 
@@ -832,6 +814,11 @@
           e.preventDefault();
           e.stopPropagation();
         }
+
+        // Disable button and hide tooltip immediately to prevent multi-clicks
+        replaceBtn.disabled = true;
+        tooltip.style.display = "none";
+
         const replacement = result.suggestion;
         const target = targetElement || findActiveOrVisibleInput();
         applyTextReplacement(target, replacement);
@@ -841,8 +828,8 @@
           navigator.clipboard.writeText(replacement).catch(() => {});
         }
 
-        tooltip.style.display = "none";
-        showToast("✨ Text replaced! (Copied to clipboard: Ctrl+V / ⌘V)");
+        showToast("✨ Text safely replaced!");
+        setTimeout(() => { replaceBtn.disabled = false; }, 500);
 
         // Update stats
         if (chrome.storage && chrome.storage.local) {

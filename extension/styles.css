@@ -106,7 +106,7 @@ body.cyhi-mode-unblur .cyhi-blurred:hover { box-shadow: 0 0 10px rgba(255, 255, 
 
 /* Image Blur Mode Rules */
 .cyhi-image-blurred {
-    filter: blur(28px) brightness(0.8) !important;
+    filter: blur(40px) brightness(0.4) !important;
     transition: filter 0.25s ease !important;
     cursor: pointer !important;
 }

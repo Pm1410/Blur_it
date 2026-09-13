@@ -245,7 +245,7 @@ async function processSmartImage(img) {
     const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
     if (w < 40 || h < 40) return;
     const rawUrl = img.currentSrc || img.src;
-    if (!rawUrl || rawUrl.startsWith('data:')) return; 
+    if (!rawUrl) return; 
 
     if (processedImgs.has(img)) return;
     processedImgs.add(img);

@@ -714,7 +714,36 @@
       function applyTextReplacement(target, newText) {
         if (!target) return false;
 
-        // 1. Contenteditable elements (Instagram DMs Lexical, Twitter, Slack, WhatsApp Web)
+        // 1. Standard Input & Textarea (Instagram comments, React 16/17/18/19 controlled components)
+        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || "value" in target) {
+          target.focus();
+
+          const prototype = Object.getPrototypeOf(target);
+          const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+
+          // Force React value tracker to be different from target value so onChange fires
+          if (target._valueTracker) {
+            target._valueTracker.setValue("");
+          }
+
+          // Use native prototype setter to guarantee 100% full replacement without cursor prepending
+          if (prototypeValueSetter) {
+            prototypeValueSetter.call(target, newText);
+          } else {
+            target.value = newText;
+          }
+
+          // Dispatch input and change events for React / Vue / Angular
+          try {
+            target.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true, data: newText }));
+          } catch {
+            target.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+          target.dispatchEvent(new Event("change", { bubbles: true }));
+          return true;
+        }
+
+        // 2. Contenteditable elements (Instagram DMs Lexical, Twitter, Slack, WhatsApp Web)
         const ceRoot = target.isContentEditable 
           ? (target.closest ? (target.closest('[contenteditable="true"]') || target) : target)
           : (target.closest ? target.closest('[contenteditable="true"]') : null);
@@ -722,26 +751,24 @@
         if (ceRoot) {
           ceRoot.focus();
 
-          // Select entire content of editable element
           const range = document.createRange();
           range.selectNodeContents(ceRoot);
           const sel = window.getSelection();
           sel.removeAllRanges();
           sel.addRange(range);
 
-          // Clear selection first
+          let replaced = false;
           try {
-            document.execCommand("delete", false, null);
+            replaced = document.execCommand("insertText", false, newText);
           } catch (e) {}
 
-          // Insert clean replacement
-          let inserted = false;
-          try {
-            inserted = document.execCommand("insertText", false, newText);
-          } catch (e) {}
-
-          if (!inserted || ceRoot.innerText.trim() !== newText.trim()) {
-            ceRoot.innerText = newText;
+          if (!replaced || ceRoot.innerText.trim() !== newText.trim()) {
+            const span = ceRoot.querySelector('span[data-lexical-text="true"]') || ceRoot.querySelector('p');
+            if (span) {
+              span.textContent = newText;
+            } else {
+              ceRoot.innerText = newText;
+            }
           }
 
           try {
@@ -756,57 +783,7 @@
           return true;
         }
 
-        // 2. Standard Input & Textarea (Instagram comments, React 16/17/18/19 controlled components)
-        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || "value" in target) {
-          target.focus();
-
-          if (target.select) target.select();
-          if (target.setSelectionRange) target.setSelectionRange(0, target.value.length);
-
-          // Reset React _valueTracker so React component state updates and enables the "Post" button
-          if (target._valueTracker) {
-            target._valueTracker.setValue(target.value + "_forced");
-          }
-
-          let inserted = false;
-          try {
-            document.execCommand("delete", false, null);
-            inserted = document.execCommand("insertText", false, newText);
-          } catch (e) {}
-
-          // Native prototype setter fallback
-          if (!inserted || target.value !== newText) {
-            try {
-              const proto = target.tagName === "TEXTAREA" 
-                ? window.HTMLTextAreaElement.prototype 
-                : window.HTMLInputElement.prototype;
-              const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
-              if (setter) {
-                setter.call(target, newText);
-              } else {
-                target.value = newText;
-              }
-            } catch {
-              target.value = newText;
-            }
-          }
-
-          // Fire beforeinput, input, and change events
-          try {
-            target.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, cancelable: true, inputType: "insertReplacementText", data: newText }));
-          } catch {}
-          try {
-            target.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true, inputType: "insertReplacementText", data: newText }));
-          } catch {
-            target.dispatchEvent(new Event("input", { bubbles: true }));
-          }
-          target.dispatchEvent(new Event("change", { bubbles: true }));
-          return true;
-        }
-
-        // 3. Generic element fallback
         target.innerText = newText;
-        target.textContent = newText;
         return true;
       }
 

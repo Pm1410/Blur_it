@@ -602,9 +602,8 @@
     `;
     document.body.appendChild(tooltip);
 
-    // Track active inputs
-    document.addEventListener("focusin", (e) => {
-      const target = e.target;
+    // Track active inputs reliably across focus, typing, and clicks
+    const updateActiveInput = (target) => {
       if (!target) return;
       const isInput = target.tagName === "TEXTAREA" ||
                       (target.tagName === "INPUT" && ["text", "search", ""].includes(target.type)) ||
@@ -613,7 +612,11 @@
         activeDraftInput = target;
         vibeBtn.classList.remove("blur-it-hidden");
       }
-    }, true);
+    };
+
+    document.addEventListener("focusin", (e) => updateActiveInput(e.target), true);
+    document.addEventListener("input", (e) => updateActiveInput(e.target), true);
+    document.addEventListener("pointerup", (e) => updateActiveInput(e.target), true);
 
     // Sync settings for vibe check / text filter
     if (chrome.storage && chrome.storage.sync) {

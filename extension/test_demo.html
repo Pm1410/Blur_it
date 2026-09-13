@@ -126,6 +126,40 @@
     </div>
   </div>
 
+  <!-- Pre-Draft Message Vibe Check Playground -->
+  <div style="margin-top: 36px; background: #131d2e; border: 1px solid rgba(139, 92, 246, 0.25); border-radius: 12px; padding: 22px; box-shadow: 0 8px 30px rgba(0,0,0,0.45);">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+      <h2 style="font-size: 18px; margin: 0; display: flex; align-items: center; gap: 8px; color: #c4b5fd;">
+        <span>✨</span> Pre-Draft Message Vibe Checker Playground
+      </h2>
+      <span style="font-size: 11px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.4); color: #ddd6fe; padding: 3px 9px; border-radius: 9999px; font-weight: 600;">BlurIt CYHI Feature</span>
+    </div>
+    <p style="font-size: 13px; color: #94a3b8; margin: 0 0 16px 0; line-height: 1.5;">
+      Test pre-draft message toxicity detection and polite rephrasing directly on inputs before posting. Click any quick preset, click inside the draft box, and click the floating <strong>"Vibe Check"</strong> button!
+    </p>
+
+    <!-- Quick Presets -->
+    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+      <button type="button" class="preset-load-btn" data-text="what are you doing bc ?" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #fca5a5; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer;">
+        🇮🇳 Sneaky Hinglish
+      </button>
+      <button type="button" class="preset-load-btn" data-text="These idiots have no idea what they are doing." style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); color: #fcd34d; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer;">
+        🤬 Abusive / Insult
+      </button>
+      <button type="button" class="preset-load-btn" data-text="f*ck off, I will find you and hunt you down." style="background: rgba(225, 29, 72, 0.15); border: 1px solid rgba(225, 29, 72, 0.35); color: #fda4af; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer;">
+        ⚠️ Leetspeak & Threat
+      </button>
+      <button type="button" class="preset-load-btn" data-text="Hackathons are so much fun and everyone did great work!" style="background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.35); color: #86efac; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer;">
+        ✅ Safe & Constructive
+      </button>
+    </div>
+
+    <!-- Interactive Compose Field -->
+    <div style="position: relative;">
+      <textarea id="demo-draft-box" rows="3" placeholder="Click any preset above or type your draft here to test Vibe Check..." style="width: 100%; box-sizing: border-box; background: #0b1120; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; padding: 12px; color: #f8fafc; font-family: inherit; font-size: 14px; resize: vertical; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='#8b5cf6'" onblur="this.style.borderColor='rgba(255, 255, 255, 0.12)'"></textarea>
+    </div>
+  </div>
+
   <div class="actions">
     <button id="add-dynamic-img">Add Dynamic NSFW Image (MutationObserver Test)</button>
     <button id="run-local-scan" class="secondary">Run Test Scan Now</button>
@@ -263,6 +297,17 @@
     }
 
     document.getElementById("run-local-scan").addEventListener("click", runInPageScan);
+
+    // Preset click handler for Vibe Check playground
+    document.querySelectorAll(".preset-load-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const box = document.getElementById("demo-draft-box");
+        box.value = btn.dataset.text;
+        box.focus();
+        box.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    });
   </script>
+  <script src="content.js"></script>
 </body>
 </html>

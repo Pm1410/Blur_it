@@ -27,14 +27,26 @@
       </div>
     </header>
 
-    <!-- Main Shield Card -->
+    <!-- Main Shield Card (Images) -->
     <section class="shield-card">
       <div class="shield-card-left">
-        <span class="shield-heading">Visual Protection</span>
-        <span class="shield-subheading" id="shield-subtext">All active tabs shielded locally</span>
+        <span class="shield-heading">Visual Shield</span>
+        <span class="shield-subheading" id="shield-subtext">Images scanned & blurred locally</span>
       </div>
-      <label class="switch" aria-label="Toggle protection">
+      <label class="switch" aria-label="Toggle visual protection">
         <input type="checkbox" id="enable-toggle" checked>
+        <span class="switch-slider"></span>
+      </label>
+    </section>
+
+    <!-- Message Vibe Check Card -->
+    <section class="shield-card" style="margin-top: 10px;">
+      <div class="shield-card-left">
+        <span class="shield-heading">Draft Vibe Check</span>
+        <span class="shield-subheading" id="vibe-subtext">Pre-post toxicity & polite detox</span>
+      </div>
+      <label class="switch" aria-label="Toggle message vibe check">
+        <input type="checkbox" id="vibe-toggle" checked>
         <span class="switch-slider"></span>
       </label>
     </section>
@@ -48,6 +60,10 @@
       <div class="metric-card">
         <span class="metric-label">Inspected</span>
         <span class="metric-value" id="stat-scanned">0</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">Vibe Check</span>
+        <span class="metric-value" id="stat-vibe">0</span>
       </div>
     </section>
 
